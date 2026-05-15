@@ -4,6 +4,9 @@
   "version": "10.2.4",
   "description": "Markdownish syntax for generating flowcharts, sequence diagrams, class diagrams, gantt charts and git graphs.",
   "type": "module",
+  "engines": {
+    "node": ">=22.14.0"
+  },
   "packageManager": "pnpm@10.30.3+sha512.c961d1e0a2d8e354ecaa5166b822516668b7f44cb5bd95122d590dd81922f606f5473b6d23ec4a5be05e7fcd18e8488d47d978bbe981872f1145d06e9a740017",
   "keywords": [
     "diagram",
@@ -16,24 +19,25 @@
   ],
   "scripts": {
     "clean": "rimraf packages/mermaid/dist",
-    "copy:dompurify": "cpy node_modules/.pnpm/dompurify@*/node_modules/dompurify/dist/purify.min.js packages/mermaid/dist/mermaid-local-editor/vendor/ --flat",
+    "copy:dompurify": "node scripts/copy-dompurify.mjs",
     "copy:mermaid": "cpy packages/mermaid/dist/mermaid.min.js packages/mermaid/dist/mermaid-local-editor/vendor/ --flat",
     "copy:editor": "cpy \"packages/mermaid-local-editor/static/**/*\" packages/mermaid/dist/mermaid-local-editor",
     "serve:dist": "sirv packages/mermaid/dist/mermaid-local-editor --port 8081 --dev --no-clear",
-    "build": "pnpm build:esbuild && pnpm build:types",
-    "build:esbuild": "pnpm run -r clean && tsx .esbuild/build.ts",
-    "build:mermaid": "pnpm build:esbuild --mermaid",
-    "build:mermaid:full": "pnpm clean && pnpm build:mermaid && pnpm copy:editor && pnpm copy:mermaid && pnpm copy:dompurify && pnpm serve:dist",
-    "build:viz": "pnpm build:esbuild --visualize",
-    "build:types": "pnpm --filter mermaid types:build-config && tsx .build/types.ts",
+    "build": "node scripts/run-root-task.mjs build:esbuild && node scripts/run-root-task.mjs build:types",
+    "build:esbuild": "node scripts/workspace-clean.mjs && tsx .esbuild/build.ts",
+    "build:mermaid": "node scripts/run-root-task.mjs build:esbuild",
+    "build:mermaid:full": "node scripts/run-root-task.mjs clean && node scripts/run-root-task.mjs build:mermaid && node scripts/run-root-task.mjs copy:editor && node scripts/run-root-task.mjs copy:mermaid && node scripts/run-root-task.mjs copy:dompurify && node scripts/run-root-task.mjs serve:dist",
+    "build:viz": "node scripts/workspace-clean.mjs && tsx .esbuild/build.ts --visualize",
+    "build:types": "node scripts/run-workspace-task.mjs packages/mermaid types:build-config && tsx .build/types.ts",
     "build:types:watch": "tsc -p ./packages/mermaid/tsconfig.json --emitDeclarationOnly --watch",
     "dev": "tsx .esbuild/server.ts",
+    "editor:web": "pnpm --filter @mermaid-js/mermaid-editor-web dev",
     "dev:vite": "tsx .vite/server.ts",
-    "dev:coverage": "pnpm coverage:cypress:clean && VITE_COVERAGE=true pnpm dev:vite",
+    "dev:coverage": "node scripts/run-root-task.mjs coverage:cypress:clean && VITE_COVERAGE=true node scripts/run-root-task.mjs dev:vite",
     "copy-readme": "cpy './README.*' ./packages/mermaid/ --cwd=.",
     "changeset:version": "changeset version && pnpm build && pnpm --filter mermaid run docs:release-version && pnpm --filter mermaid run docs:build && git add --all",
     "changeset:publish": "pnpm copy-readme && changeset publish",
-    "lint": "eslint --quiet --stats --cache --cache-strategy content . && pnpm lint:jison && prettier --cache --check .",
+    "lint": "eslint --quiet --stats --cache --cache-strategy content . && node scripts/run-root-task.mjs lint:jison && prettier --cache --check .",
     "lint:fix": "eslint --cache --cache-strategy content --fix . && prettier --write . && tsx scripts/fixCSpell.ts",
     "lint:jison": "tsx ./scripts/jison/lint.mts",
     "contributors": "tsx scripts/updateContributors.ts",
@@ -52,12 +56,12 @@
     "e2e:scope:run": "tsx scripts/run-e2e-scoped.ts",
     "e2e:scope:detect": "git diff --name-only ${E2E_BASE_REF:-develop} HEAD | node scripts/e2e-diagram-scope.mjs",
     "load:env": "dotenv -e .env",
-    "test": "pnpm lint && vitest run",
+    "test": "node scripts/run-root-task.mjs lint && vitest run",
     "test:watch": "vitest --watch",
     "test:watch:em": "vitest --watch packages/parser/tests/eventmodeling.test.ts",
     "test:coverage": "vitest --coverage",
     "test:check:tsc": "tsx scripts/tsc-check.ts",
-    "prepare": "husky && pnpm build",
+    "prepare": "node scripts/run-root-task.mjs build",
     "pre-commit": "lint-staged"
   },
   "repository": {
@@ -124,7 +128,6 @@
     "express": "^5.2.1",
     "globals": "^16.4.0",
     "globby": "^14.1.0",
-    "husky": "^9.1.7",
     "jest": "^30.1.3",
     "jison": "^0.4.18",
     "js-yaml": "^4.1.1",
@@ -153,9 +156,6 @@
     "report-dir": "coverage/cypress"
   },
   "pnpm": {
-    "patchedDependencies": {
-      "roughjs": "patches/roughjs.patch"
-    },
     "onlyBuiltDependencies": [
       "canvas",
       "cypress",
@@ -166,5 +166,14 @@
       "sharp",
       "vue-demi"
     ]
-  }
+  },
+  "patchedDependencies": {
+    "roughjs": "patches/roughjs.patch"
+  },
+  "workspaces": [
+    "packages/*",
+    "packages/mermaid/src/docs",
+    "packages/mermaid/src/vitepress",
+    "tests/*"
+  ]
 }
