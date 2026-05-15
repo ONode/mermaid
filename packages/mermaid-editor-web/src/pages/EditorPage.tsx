@@ -82,7 +82,7 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
   const previewRef = useRef<HTMLDivElement | null>(null);
   const renderSeq = useRef(0);
   const [mermaidError, setMermaidError] = useState<string | null>(null);
-  const [sourceCollapsed, setSourceCollapsed] = useState(false);
+  const [sourceCollapsed, setSourceCollapsed] = useState(true);
   const [addNodeMenuOpen, setAddNodeMenuOpen] = useState(false);
   const addNodeMenuRef = useRef<HTMLDivElement | null>(null);
 
