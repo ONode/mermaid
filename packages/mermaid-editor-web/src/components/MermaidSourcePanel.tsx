@@ -5,6 +5,8 @@ export type MermaidSourcePanelProps = {
   previewText: string;
   onDraftChange: (next: string) => void;
   parseError: string | null;
+  canvasMermaidPreview: boolean;
+  onToggleCanvasMermaidPreview: () => void;
   onCopyMermaid: () => void;
   onDownloadMermaid: () => void;
   onEnterTextMode: () => void;
@@ -19,6 +21,8 @@ export function MermaidSourcePanel({
   previewText,
   onDraftChange,
   parseError,
+  canvasMermaidPreview,
+  onToggleCanvasMermaidPreview,
   onCopyMermaid,
   onDownloadMermaid,
   onEnterTextMode,
@@ -59,6 +63,20 @@ export function MermaidSourcePanel({
             >
               Download .mmd
             </button>
+            <button
+              type="button"
+              className={canvasMermaidPreview ? 'panel--source__btn-accent' : undefined}
+              aria-pressed={canvasMermaidPreview}
+              aria-label={
+                canvasMermaidPreview
+                  ? 'Show flow canvas (exit Mermaid chart preview)'
+                  : 'Show Mermaid chart preview in canvas panel'
+              }
+              title={canvasMermaidPreview ? 'Back to flow canvas' : 'Render this source as a chart in the canvas panel'}
+              onClick={onToggleCanvasMermaidPreview}
+            >
+              {canvasMermaidPreview ? 'Canvas' : 'Mermaid preview'}
+            </button>
             {!textEditMode ? (
               <button type="button" onClick={onEnterTextMode}>
                 Edit Mermaid text
@@ -83,7 +101,7 @@ export function MermaidSourcePanel({
       >
         <p className="panel__hint">
           {textEditMode
-            ? 'Edit text, then Apply. Supports flowchart TD, rectangle / stadium / diamond / circle nodes, simple edges, and style fill lines.'
+            ? 'Edit text, then Apply. Supports flowchart TD/LR/…, nodes and edges (including `a --> id["label"]` inline targets), style fills; %% and subgraph/direction/end are skipped. Apply updates the canvas, then the text shown here is re-generated (same meaning; quotes/indent may differ).'
             : 'Generated from the canvas. Shapes and fills round-trip via Mermaid; use “Edit Mermaid text” to paste or edit, then Apply.'}
         </p>
         <textarea

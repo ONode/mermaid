@@ -301,6 +301,41 @@ body {
   min-height: 0;
 }
 
+.flow-mermaid-chart-preview {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.flow-mermaid-chart-preview__error {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.flow-mermaid-chart-preview__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 12px 16px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-dim);
+}
+
+.flow-mermaid-chart-preview__host.mermaid {
+  max-width: 100%;
+}
+
+.flow-mermaid-chart-preview__host svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .flow-canvas-overlay {
   position: absolute;
   inset: 0 0 auto 0;

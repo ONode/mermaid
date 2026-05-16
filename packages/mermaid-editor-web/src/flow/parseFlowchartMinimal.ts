@@ -4,7 +4,15 @@ export type ParseResult =
   | { ok: true; nodes: FlowNode[]; edges: FlowEdge[] }
   | { ok: false; error: string };
 
-const HEADER = /^\s*flowchart\s+TD\s*$/i;
+/** First line: any supported flowchart direction (canvas layout is independent). */
+const HEADER = /^\s*flowchart\s+(TD|LR|RL|TB|BT)\s*$/i;
+
+/** Full-line `%%` comments (not `%%{…}` directives). */
+const COMMENT_LINE = /^\s*%%(?!\{)/;
+/** Subgraph wrappers are ignored for canvas sync; inner nodes/edges are still parsed. */
+const SUBGRAPH_LINE = /^\s*subgraph\b/i;
+const DIRECTION_LINE = /^\s*direction\s+(TD|BT|LR|RL)\s*$/i;
+const END_LINE = /^\s*end\s*$/i;
 
 /** Unquoted rect: id[label] */
 const NODE_RECT = /^\s*(\w+)\[([^\]\n]+)\]\s*$/;
@@ -24,11 +32,52 @@ const NODE_DIA_QUOTED = /^\s*(\w+)\{"((?:\\.|[^"\\])*)"\}\s*$/;
 const EDGE_LAB = /^\s*(\w+)\s*-->\s*\|([^|\n]+)\|\s*(\w+)\s*$/;
 /** Plain edge */
 const EDGE = /^\s*(\w+)\s*-->\s*(\w+)\s*$/;
+/** `src -->` + remainder is an inline node (same shapes as standalone lines). */
+const EDGE_TO_SUFFIX = /^\s*(\w+)\s*-->\s*(.+)$/;
+const EDGE_LAB_TO_SUFFIX = /^\s*(\w+)\s*-->\s*\|([^|\n]+)\|\s*(.+)$/;
 /** style id fill:... (single-line; supports rgba with spaces) */
 const STYLE_FILL = /^\s*style\s+(\w+)\s+fill:\s*(.+)$/;
 
 function unquote(s: string): string {
   return s.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+}
+
+/** Inline node after `-->` (trimmed); patterns mirror NODE_* without leading line whitespace. */
+function parseInlineNodeDef(s: string): { id: string; label: string; shape: FlowShape } | null {
+  const t = s.trim();
+  let m = /^(\w+)\["((?:\\.|[^"\\])*)"\]\s*$/.exec(t);
+  if (m) {
+    return { id: m[1], label: unquote(m[2]), shape: 'rect' };
+  }
+  m = /^(\w+)\[([^\]\n]+)\]\s*$/.exec(t);
+  if (m) {
+    return { id: m[1], label: m[2], shape: 'rect' };
+  }
+  m = /^(\w+)\(\[\s*"((?:\\.|[^"\\])*)"\s*\]\)\s*$/.exec(t);
+  if (m) {
+    return { id: m[1], label: unquote(m[2]), shape: 'stadium' };
+  }
+  m = /^(\w+)\(\[([^\]\n]+)\]\)\s*$/.exec(t);
+  if (m) {
+    return { id: m[1], label: m[2], shape: 'stadium' };
+  }
+  m = /^(\w+)\(\(\s*"((?:\\.|[^"\\])*)"\s*\)\)\s*$/.exec(t);
+  if (m) {
+    return { id: m[1], label: unquote(m[2]), shape: 'circle' };
+  }
+  m = /^(\w+)\(\(([^)\n]*)\)\)\s*$/.exec(t);
+  if (m) {
+    return { id: m[1], label: m[2], shape: 'circle' };
+  }
+  m = /^(\w+)\{"((?:\\.|[^"\\])*)"\}\s*$/.exec(t);
+  if (m) {
+    return { id: m[1], label: unquote(m[2]), shape: 'diamond' };
+  }
+  m = /^(\w+)\{([^}\n]*)\}\s*$/.exec(t);
+  if (m) {
+    return { id: m[1], label: m[2], shape: 'diamond' };
+  }
+  return null;
 }
 
 function upsertNode(nodes: Map<string, FlowNode>, id: string, label: string, shape: FlowShape): void {
@@ -58,8 +107,9 @@ function applyStyleFill(nodes: Map<string, FlowNode>, id: string, fill: string):
 }
 
 /**
- * Minimal parser: `flowchart TD`, node lines `id[label]` / `id([...])` / `id((...))` / `id{"..."}` / `id{label}`,
- * edges `a --> b` and `a -->|lbl| b`, `style id fill:color`. Ignores empty lines and unknown lines (error).
+ * Minimal parser: `flowchart` + direction (`TD`, `LR`, …), node lines `id[label]` / `id([...])` / `id((...))` / `id{"..."}` / `id{label}`,
+ * edges `a --> b`, `a -->|lbl| b`, and `a --> id["label"]` (inline target node, same shapes as standalone), `style id fill:color`. Skips `%%` comments, `subgraph` / `direction` / `end` lines (no grouping on canvas).
+ * Unknown lines are errors.
  */
 export function parseFlowchartMinimal(text: string): ParseResult {
   const lines = text.split(/\r?\n/);
@@ -71,6 +121,13 @@ export function parseFlowchartMinimal(text: string): ParseResult {
     const line = lines[i] ?? '';
     const trimmed = line.trim();
     if (!trimmed) {
+      continue;
+    }
+
+    if (COMMENT_LINE.test(trimmed)) {
+      continue;
+    }
+    if (SUBGRAPH_LINE.test(trimmed) || DIRECTION_LINE.test(trimmed) || END_LINE.test(trimmed)) {
       continue;
     }
 
@@ -140,6 +197,33 @@ export function parseFlowchartMinimal(text: string): ParseResult {
       const label = m[2];
       upsertNode(nodes, id, label, 'diamond');
       continue;
+    }
+
+    m = EDGE_LAB_TO_SUFFIX.exec(trimmed);
+    if (m) {
+      const inline = parseInlineNodeDef(m[3]);
+      if (inline) {
+        upsertNode(nodes, inline.id, inline.label, inline.shape);
+        const id = `e-${m[1]}-${inline.id}-${edges.length}`;
+        edges.push({
+          id,
+          source: m[1],
+          target: inline.id,
+          label: m[2].trim(),
+        });
+        continue;
+      }
+    }
+
+    m = EDGE_TO_SUFFIX.exec(trimmed);
+    if (m) {
+      const inline = parseInlineNodeDef(m[2]);
+      if (inline) {
+        upsertNode(nodes, inline.id, inline.label, inline.shape);
+        const id = `e-${m[1]}-${inline.id}-${edges.length}`;
+        edges.push({ id, source: m[1], target: inline.id });
+        continue;
+      }
     }
 
     m = EDGE_LAB.exec(trimmed);

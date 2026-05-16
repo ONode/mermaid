@@ -4,9 +4,9 @@ import {
   useNodesState,
   type Connection,
 } from '@xyflow/react';
-import mermaid from 'mermaid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlowCanvasPanel } from '../components/FlowCanvasPanel';
+import { MermaidPreviewPanel } from '../components/MermaidPreviewPanel';
 import { MermaidSourcePanel } from '../components/MermaidSourcePanel';
 import { createInitialEdges, createInitialNodes } from '../flow/defaultGraph';
 import { parseFlowchartMinimal } from '../flow/parseFlowchartMinimal';
@@ -17,28 +17,6 @@ import {
   type ChartRecord,
 } from '../storage/chartLibrary';
 import type { FlowEdge, FlowNode, FlowShape } from '../flow/types';
-
-function formatMermaidError(err: unknown): string {
-  if (typeof err === 'string') {
-    return err;
-  }
-  if (err instanceof Error) {
-    return err.message;
-  }
-  if (
-    err &&
-    typeof err === 'object' &&
-    'str' in err &&
-    typeof (err as { str: unknown }).str === 'string'
-  ) {
-    return (err as { str: string }).str;
-  }
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return String(err);
-  }
-}
 
 function mergeNodePositions(prev: FlowNode[], next: FlowNode[]): FlowNode[] {
   const pos = new Map(prev.map((n) => [n.id, n.position]));
@@ -79,10 +57,8 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
   const generated = useMemo(() => serializeFlowchart(nodes, edges), [nodes, edges]);
   const previewText = textEditMode ? draft : generated;
 
-  const previewRef = useRef<HTMLDivElement | null>(null);
-  const renderSeq = useRef(0);
-  const [mermaidError, setMermaidError] = useState<string | null>(null);
   const [sourceCollapsed, setSourceCollapsed] = useState(true);
+  const [canvasMermaidPreview, setCanvasMermaidPreview] = useState(false);
   const [addNodeMenuOpen, setAddNodeMenuOpen] = useState(false);
   const addNodeMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -98,46 +74,17 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
     return () => window.clearTimeout(handle);
   }, [nodes, edges, onSaveGraph]);
 
-  const runRender = useCallback(async (text: string) => {
-    const el = previewRef.current;
-    if (!el) {
-      return;
-    }
-
-    const seq = ++renderSeq.current;
-    el.removeAttribute('data-processed');
-    el.textContent = text;
-    el.classList.add('mermaid');
-
-    try {
-      await mermaid.run({ nodes: [el], suppressErrors: false });
-      if (seq === renderSeq.current) {
-        setMermaidError(null);
-      }
-    } catch (err) {
-      if (seq === renderSeq.current) {
-        setMermaidError(formatMermaidError(err));
-        el.removeAttribute('data-processed');
-        el.replaceChildren();
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      void runRender(previewText);
-    }, 250);
-
-    return () => {
-      window.clearTimeout(handle);
-    };
-  }, [previewText, runRender]);
-
   useEffect(() => {
     if (textEditMode) {
       setAddNodeMenuOpen(false);
     }
   }, [textEditMode]);
+
+  useEffect(() => {
+    if (canvasMermaidPreview) {
+      setAddNodeMenuOpen(false);
+    }
+  }, [canvasMermaidPreview]);
 
   useEffect(() => {
     if (!renameModalOpen) {
@@ -266,10 +213,15 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
     setNodes(n);
     setEdges(e);
     setParseError(null);
+    setCanvasMermaidPreview(false);
     if (textEditMode) {
       setDraft(serializeFlowchart(n, e));
     }
   }, [setEdges, setNodes, textEditMode]);
+
+  const toggleCanvasMermaidPreview = useCallback(() => {
+    setCanvasMermaidPreview((v) => !v);
+  }, []);
 
   const copyMermaid = useCallback(async () => {
     try {
@@ -430,6 +382,8 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
           previewText={previewText}
           onDraftChange={setDraft}
           parseError={parseError}
+          canvasMermaidPreview={canvasMermaidPreview}
+          onToggleCanvasMermaidPreview={toggleCanvasMermaidPreview}
           onCopyMermaid={copyMermaid}
           onDownloadMermaid={downloadMermaid}
           onEnterTextMode={enterTextMode}
@@ -439,6 +393,8 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
 
         <FlowCanvasPanel
           textEditMode={textEditMode}
+          mermaidChartPreview={canvasMermaidPreview}
+          mermaidPreviewSource={previewText}
           selectedCount={selectedCount}
           singleSelection={singleSelection}
           renameModalOpen={renameModalOpen}
@@ -456,11 +412,7 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
           onConnect={onConnect}
         />
 
-        <section className="panel panel--preview">
-          <h1>// Mermaid preview</h1>
-          {mermaidError ? <p className="error">{mermaidError}</p> : null}
-          <div className="preview-wrap" ref={previewRef} />
-        </section>
+        <MermaidPreviewPanel source={previewText} />
       </div>
 
       <footer className="app-statusbar">

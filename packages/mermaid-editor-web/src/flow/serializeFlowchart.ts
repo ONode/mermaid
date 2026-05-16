@@ -1,29 +1,34 @@
 import type { FlowEdge, FlowNode } from './types';
 
+function escapeQuotedLabel(label: string): string {
+  return label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/** Use Mermaid quoted form when plain `[…]` / `{…}` text would lose clarity or risk parse issues. */
 function formatRectLabel(label: string): string {
-  if (/[\n[\]"]/.test(label)) {
-    return `"${label.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  if (/[\n[\]"<>()]|^\s|\s$/.test(label)) {
+    return `"${escapeQuotedLabel(label)}"`;
   }
   return label;
 }
 
 function formatDiamondLabel(label: string): string {
-  if (/[\n{}"]/.test(label)) {
-    return `"${label.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  if (/[\n{}<>()"]|^\s|\s$/.test(label)) {
+    return `"${escapeQuotedLabel(label)}"`;
   }
   return label;
 }
 
 function formatStadiumLabel(label: string): string {
-  if (/[\n[\]"]/.test(label)) {
-    return `"${label.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  if (/[\n[\]"<>()]|^\s|\s$/.test(label)) {
+    return `"${escapeQuotedLabel(label)}"`;
   }
   return label;
 }
 
 function formatCircleLabel(label: string): string {
   if (/[\n")]|^\s|\s$/.test(label) || label.includes(')')) {
-    return `"${label.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+    return `"${escapeQuotedLabel(label)}"`;
   }
   return label;
 }
@@ -50,8 +55,8 @@ function formatEdgeLine(edge: FlowEdge): string {
   const label =
     typeof edge.label === 'string' && edge.label.length > 0 ? edge.label : undefined;
   if (label !== undefined) {
-    const safe = /[\n|]/.test(label)
-      ? `"${label.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+    const safe = /[\n|<>()"]/.test(label)
+      ? `"${escapeQuotedLabel(label)}"`
       : label;
     return `    ${edge.source} -->|${safe}| ${edge.target}`;
   }

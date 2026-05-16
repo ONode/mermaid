@@ -1,11 +1,36 @@
 import type { Connection, EdgeChange, NodeChange } from '@xyflow/react';
-import { useEffect, useId, useRef } from 'react';
+import mermaid from 'mermaid';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { FlowEdge, FlowNode, FlowShape } from '../flow/types';
 import { FlowCanvas } from './FlowCanvas';
 import { NodeSelectionToolbar } from './NodeSelectionToolbar';
 
+function formatMermaidCanvasError(err: unknown): string {
+  if (typeof err === 'string') {
+    return err;
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (
+    err &&
+    typeof err === 'object' &&
+    'str' in err &&
+    typeof (err as { str: unknown }).str === 'string'
+  ) {
+    return (err as { str: string }).str;
+  }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
+}
+
 export type FlowCanvasPanelProps = {
   textEditMode: boolean;
+  mermaidChartPreview: boolean;
+  mermaidPreviewSource: string;
   selectedCount: number;
   singleSelection: { id: string; label: string } | null;
   renameModalOpen: boolean;
@@ -25,6 +50,8 @@ export type FlowCanvasPanelProps = {
 
 export function FlowCanvasPanel({
   textEditMode,
+  mermaidChartPreview,
+  mermaidPreviewSource,
   selectedCount,
   singleSelection,
   renameModalOpen,
@@ -44,6 +71,44 @@ export function FlowCanvasPanel({
   const titleId = useId();
   const fieldId = useId();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const mermaidCanvasRef = useRef<HTMLDivElement | null>(null);
+  const mermaidRenderSeq = useRef(0);
+  const [mermaidCanvasError, setMermaidCanvasError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!mermaidChartPreview) {
+      setMermaidCanvasError(null);
+      return;
+    }
+    const el = mermaidCanvasRef.current;
+    if (!el) {
+      return;
+    }
+
+    const seq = ++mermaidRenderSeq.current;
+    el.removeAttribute('data-processed');
+    el.textContent = mermaidPreviewSource;
+    el.classList.add('mermaid');
+
+    void (async () => {
+      try {
+        await mermaid.run({ nodes: [el], suppressErrors: false });
+        if (seq === mermaidRenderSeq.current) {
+          setMermaidCanvasError(null);
+        }
+      } catch (err) {
+        if (seq === mermaidRenderSeq.current) {
+          setMermaidCanvasError(formatMermaidCanvasError(err));
+          el.removeAttribute('data-processed');
+          el.replaceChildren();
+        }
+      }
+    })();
+
+    return () => {
+      mermaidRenderSeq.current += 1;
+    };
+  }, [mermaidChartPreview, mermaidPreviewSource]);
 
   useEffect(() => {
     if (!renameModalOpen) {
@@ -72,26 +137,35 @@ export function FlowCanvasPanel({
 
   return (
     <section className={`panel panel--flow ${textEditMode ? 'panel--flow-disabled' : ''}`}>
-      <h1>// Canvas</h1>
+      <h1>{mermaidChartPreview ? '// Canvas — Mermaid' : '// Canvas'}</h1>
       <div className="flow-panel-body">
-        <div className="flow-canvas-stack">
-          <FlowCanvas
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-          />
-          <div className="flow-canvas-overlay" aria-live="polite">
-            <NodeSelectionToolbar
-              selectedCount={selectedCount}
-              singleSelection={singleSelection}
-              onOpenRenameModal={onOpenRenameModal}
-              onPickFill={onPickFill}
-              onPickShape={onPickShape}
-            />
+        {mermaidChartPreview ? (
+          <div className="flow-mermaid-chart-preview">
+            {mermaidCanvasError ? <p className="error flow-mermaid-chart-preview__error">{mermaidCanvasError}</p> : null}
+            <div className="flow-mermaid-chart-preview__scroll">
+              <div ref={mermaidCanvasRef} className="flow-mermaid-chart-preview__host" />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flow-canvas-stack">
+            <FlowCanvas
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+            />
+            <div className="flow-canvas-overlay" aria-live="polite">
+              <NodeSelectionToolbar
+                selectedCount={selectedCount}
+                singleSelection={singleSelection}
+                onOpenRenameModal={onOpenRenameModal}
+                onPickFill={onPickFill}
+                onPickShape={onPickShape}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {renameModalOpen ? (
