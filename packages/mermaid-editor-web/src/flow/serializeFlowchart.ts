@@ -1,4 +1,4 @@
-import type { FlowEdge, FlowNode } from './types';
+import type { FlowchartDirection, FlowEdge, FlowNode } from './types';
 
 function escapeQuotedLabel(label: string): string {
   return label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -64,9 +64,13 @@ function formatEdgeLine(edge: FlowEdge): string {
 }
 
 /**
- * Deterministic `flowchart TD` text from React Flow nodes and edges.
+ * Deterministic `flowchart …` text from React Flow nodes and edges.
  */
-export function serializeFlowchart(nodes: FlowNode[], edges: FlowEdge[]): string {
+export function serializeFlowchart(
+  nodes: FlowNode[],
+  edges: FlowEdge[],
+  direction: FlowchartDirection = 'TD'
+): string {
   const sortedNodes = [...nodes].sort((a, b) => a.id.localeCompare(b.id));
   const sortedEdges = [...edges].sort((a, b) => {
     const s = a.source.localeCompare(b.source);
@@ -88,7 +92,7 @@ export function serializeFlowchart(nodes: FlowNode[], edges: FlowEdge[]): string
     .map((n) => `    style ${n.id} fill:${n.data.backgroundColor}`);
 
   const lines = [
-    'flowchart TD',
+    `flowchart ${direction}`,
     ...sortedNodes.map(formatNodeLine),
     ...sortedEdges.map(formatEdgeLine),
     ...styleLines,

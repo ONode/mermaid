@@ -6,17 +6,17 @@ import {
 } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlowCanvasPanel } from '../components/FlowCanvasPanel';
-import { MermaidPreviewPanel } from '../components/MermaidPreviewPanel';
 import { MermaidSourcePanel } from '../components/MermaidSourcePanel';
 import { createInitialEdges, createInitialNodes } from '../flow/defaultGraph';
 import { parseFlowchartMinimal } from '../flow/parseFlowchartMinimal';
 import { serializeFlowchart } from '../flow/serializeFlowchart';
 import {
+  chartFlowDirection,
   persistedToFlowEdges,
   persistedToFlowNodes,
   type ChartRecord,
 } from '../storage/chartLibrary';
-import type { FlowEdge, FlowNode, FlowShape } from '../flow/types';
+import type { FlowchartDirection, FlowEdge, FlowNode, FlowShape } from '../flow/types';
 
 function mergeNodePositions(prev: FlowNode[], next: FlowNode[]): FlowNode[] {
   const pos = new Map(prev.map((n) => [n.id, n.position]));
@@ -28,10 +28,11 @@ const SAVE_DEBOUNCE_MS = 500;
 export type EditorPageProps = {
   chart: ChartRecord;
   onBack: () => void;
-  onSaveGraph: (nodes: FlowNode[], edges: FlowEdge[]) => void;
+  onSaveGraph: (nodes: FlowNode[], edges: FlowEdge[], flowDirection: FlowchartDirection) => void;
+  onOpenMermaidPreview: (mermaidSource: string) => void;
 };
 
-export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
+export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }: EditorPageProps) {
   const initialNodes = useMemo(() => persistedToFlowNodes(chart.nodes), [chart.nodes]);
   const initialEdges = useMemo(() => persistedToFlowEdges(chart.edges), [chart.edges]);
 
@@ -40,6 +41,9 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
   const [textEditMode, setTextEditMode] = useState(false);
   const [draft, setDraft] = useState('');
   const [parseError, setParseError] = useState<string | null>(null);
+  const [flowDirection, setFlowDirection] = useState<FlowchartDirection>(() =>
+    chartFlowDirection(chart)
+  );
 
   const selectedCount = useMemo(() => nodes.filter((n) => n.selected).length, [nodes]);
   const singleSelection = useMemo(() => {
@@ -54,7 +58,10 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [renameDraft, setRenameDraft] = useState('');
   const renameTargetIdRef = useRef<string | null>(null);
-  const generated = useMemo(() => serializeFlowchart(nodes, edges), [nodes, edges]);
+  const generated = useMemo(
+    () => serializeFlowchart(nodes, edges, flowDirection),
+    [nodes, edges, flowDirection]
+  );
   const previewText = textEditMode ? draft : generated;
 
   const [sourceCollapsed, setSourceCollapsed] = useState(true);
@@ -64,15 +71,17 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
 
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
+  const flowDirectionRef = useRef(flowDirection);
   nodesRef.current = nodes;
   edgesRef.current = edges;
+  flowDirectionRef.current = flowDirection;
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
-      onSaveGraph(nodes, edges);
+      onSaveGraph(nodes, edges, flowDirection);
     }, SAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
-  }, [nodes, edges, onSaveGraph]);
+  }, [nodes, edges, flowDirection, onSaveGraph]);
 
   useEffect(() => {
     if (textEditMode) {
@@ -212,10 +221,11 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
     const e = createInitialEdges();
     setNodes(n);
     setEdges(e);
+    setFlowDirection('TD');
     setParseError(null);
     setCanvasMermaidPreview(false);
     if (textEditMode) {
-      setDraft(serializeFlowchart(n, e));
+      setDraft(serializeFlowchart(n, e, 'TD'));
     }
   }, [setEdges, setNodes, textEditMode]);
 
@@ -263,12 +273,13 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
     }
     setNodes((prev) => mergeNodePositions(prev, r.nodes));
     setEdges(r.edges);
+    setFlowDirection(r.direction);
     setTextEditMode(false);
     setParseError(null);
   };
 
   const handleBack = useCallback(() => {
-    onSaveGraph(nodesRef.current, edgesRef.current);
+    onSaveGraph(nodesRef.current, edgesRef.current, flowDirectionRef.current);
     onBack();
   }, [onBack, onSaveGraph]);
 
@@ -368,6 +379,14 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
             <button type="button" onClick={resetDiagram}>
               Reset
             </button>
+            <button
+              type="button"
+              className="app-header__btn-accent"
+              disabled={textEditMode}
+              onClick={() => onOpenMermaidPreview(serializeFlowchart(nodes, edges, flowDirection))}
+            >
+              Mermaid preview
+            </button>
           </div>
         </div>
       </header>
@@ -411,8 +430,6 @@ export function EditorPage({ chart, onBack, onSaveGraph }: EditorPageProps) {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
         />
-
-        <MermaidPreviewPanel source={previewText} />
       </div>
 
       <footer className="app-statusbar">

@@ -1,7 +1,7 @@
 import mermaid from 'mermaid';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { serializeFlowchart } from '../flow/serializeFlowchart';
-import type { FlowEdge, FlowNode } from '../flow/types';
+import type { FlowchartDirection, FlowEdge, FlowNode } from '../flow/types';
 
 function formatMermaidError(err: unknown): string {
   if (typeof err === 'string') {
@@ -28,9 +28,10 @@ function formatMermaidError(err: unknown): string {
 type ChartThumbnailProps = {
   nodes: FlowNode[];
   edges: FlowEdge[];
+  flowDirection?: FlowchartDirection;
 };
 
-export function ChartThumbnail({ nodes, edges }: ChartThumbnailProps) {
+export function ChartThumbnail({ nodes, edges, flowDirection = 'TD' }: ChartThumbnailProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [visible, setVisible] = useState(false);
@@ -59,7 +60,7 @@ export function ChartThumbnail({ nodes, edges }: ChartThumbnailProps) {
     if (!el) {
       return;
     }
-    const text = serializeFlowchart(nodes, edges);
+    const text = serializeFlowchart(nodes, edges, flowDirection);
     const seq = ++renderSeq.current;
     el.removeAttribute('data-processed');
     el.textContent = text;
@@ -77,7 +78,7 @@ export function ChartThumbnail({ nodes, edges }: ChartThumbnailProps) {
         el.appendChild(p);
       }
     }
-  }, [nodes, edges]);
+  }, [nodes, edges, flowDirection]);
 
   useEffect(() => {
     if (!visible) {

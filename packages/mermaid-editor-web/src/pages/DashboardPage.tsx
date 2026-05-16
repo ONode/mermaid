@@ -1,5 +1,6 @@
 import { ChartThumbnail } from '../components/ChartThumbnail';
 import {
+  chartFlowDirection,
   persistedToFlowEdges,
   persistedToFlowNodes,
   type ChartRecord,
@@ -83,6 +84,7 @@ export function DashboardPage({
                   <ChartThumbnail
                     nodes={persistedToFlowNodes(chart.nodes)}
                     edges={persistedToFlowEdges(chart.edges)}
+                    flowDirection={chartFlowDirection(chart)}
                   />
                 </button>
                 <div className="dashboard-card__body">

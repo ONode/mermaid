@@ -1,7 +1,7 @@
-import type { FlowEdge, FlowNode, FlowShape } from './types';
+import type { FlowchartDirection, FlowEdge, FlowNode, FlowShape } from './types';
 
 export type ParseResult =
-  | { ok: true; nodes: FlowNode[]; edges: FlowEdge[] }
+  | { ok: true; nodes: FlowNode[]; edges: FlowEdge[]; direction: FlowchartDirection }
   | { ok: false; error: string };
 
 /** First line: any supported flowchart direction (canvas layout is independent). */
@@ -116,6 +116,8 @@ export function parseFlowchartMinimal(text: string): ParseResult {
   const nodes = new Map<string, FlowNode>();
   const edges: FlowEdge[] = [];
   const unknown: string[] = [];
+  let direction: FlowchartDirection = 'TD';
+  let sawFlowchartHeader = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? '';
@@ -131,7 +133,12 @@ export function parseFlowchartMinimal(text: string): ParseResult {
       continue;
     }
 
-    if (HEADER.test(trimmed)) {
+    const headerMatch = HEADER.exec(trimmed);
+    if (headerMatch) {
+      if (!sawFlowchartHeader) {
+        direction = headerMatch[1].toUpperCase() as FlowchartDirection;
+        sawFlowchartHeader = true;
+      }
       continue;
     }
 
@@ -276,7 +283,7 @@ export function parseFlowchartMinimal(text: string): ParseResult {
     }
   }
 
-  return { ok: true, nodes: [...nodes.values()], edges };
+  return { ok: true, nodes: [...nodes.values()], edges, direction };
 }
 
 function placeNode(id: string, index: number): { x: number; y: number } {

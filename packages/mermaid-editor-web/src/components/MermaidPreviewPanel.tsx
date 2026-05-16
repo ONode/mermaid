@@ -28,12 +28,14 @@ const RENDER_DEBOUNCE_MS = 250;
 export type MermaidPreviewPanelProps = {
   /** Mermaid diagram definition (e.g. flowchart TD …). */
   source: string;
+  /** Extra class names on the root `<section>` (e.g. full-page layout). */
+  className?: string;
 };
 
 /**
- * Bottom grid panel: debounced `mermaid.run` for the given source string.
+ * Debounced `mermaid.run` for the given source string.
  */
-export function MermaidPreviewPanel({ source }: MermaidPreviewPanelProps) {
+export function MermaidPreviewPanel({ source, className }: MermaidPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const renderSeq = useRef(0);
   const [mermaidError, setMermaidError] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export function MermaidPreviewPanel({ source }: MermaidPreviewPanelProps) {
   }, [source, runRender]);
 
   return (
-    <section className="panel panel--preview">
+    <section className={['panel', 'panel--preview', className].filter(Boolean).join(' ')}>
       <h1>// Mermaid preview</h1>
       {mermaidError ? <p className="error">{mermaidError}</p> : null}
       <div className="preview-wrap" ref={containerRef} />

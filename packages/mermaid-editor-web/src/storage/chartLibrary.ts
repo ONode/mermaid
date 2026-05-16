@@ -1,4 +1,4 @@
-import type { FlowEdge, FlowNode, FlowNodeData } from '../flow/types';
+import type { FlowchartDirection, FlowEdge, FlowNode, FlowNodeData } from '../flow/types';
 
 export const CHART_LIBRARY_STORAGE_KEY = 'mermaid-editor-web:charts';
 
@@ -22,6 +22,8 @@ export type ChartRecord = {
   id: string;
   name: string;
   updatedAt: number;
+  /** Mermaid `flowchart …` direction; omitted in older saves defaults to `TD`. */
+  flowDirection?: FlowchartDirection;
   nodes: PersistedNode[];
   edges: PersistedEdge[];
 };
@@ -32,6 +34,12 @@ export type ChartLibraryFile = {
 };
 
 const SHAPES = new Set(['rect', 'stadium', 'diamond', 'circle']);
+const FLOW_DIRECTIONS = new Set<FlowchartDirection>(['TD', 'LR', 'RL', 'TB', 'BT']);
+
+export function chartFlowDirection(chart: ChartRecord): FlowchartDirection {
+  const d = chart.flowDirection;
+  return d !== undefined && FLOW_DIRECTIONS.has(d) ? d : 'TD';
+}
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -91,6 +99,12 @@ function isChartRecord(v: unknown): v is ChartRecord {
     return false;
   }
   if (!Array.isArray(v.nodes) || !Array.isArray(v.edges)) {
+    return false;
+  }
+  if (
+    v.flowDirection !== undefined &&
+    (typeof v.flowDirection !== 'string' || !FLOW_DIRECTIONS.has(v.flowDirection as FlowchartDirection))
+  ) {
     return false;
   }
   return v.nodes.every(isPersistedNode) && v.edges.every(isPersistedEdge);

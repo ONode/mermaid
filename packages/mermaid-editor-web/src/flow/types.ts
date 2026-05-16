@@ -1,5 +1,8 @@
 import type { Edge, Node } from '@xyflow/react';
 
+/** Mermaid `flowchart …` direction keywords supported by parse/serialize. */
+export type FlowchartDirection = 'TD' | 'LR' | 'RL' | 'TB' | 'BT';
+
 /** Mermaid flowchart node shapes supported by parse/serialize. */
 export type FlowShape = 'rect' | 'stadium' | 'diamond' | 'circle';
 

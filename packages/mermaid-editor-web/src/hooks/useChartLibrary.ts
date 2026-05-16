@@ -11,7 +11,7 @@ import {
   stripEdgeForPersist,
   stripNodeForPersist,
 } from '../storage/chartLibrary';
-import type { FlowEdge, FlowNode } from '../flow/types';
+import type { FlowchartDirection, FlowEdge, FlowNode } from '../flow/types';
 
 function sortChartsByUpdated(a: ChartRecord, b: ChartRecord): number {
   return b.updatedAt - a.updatedAt;
@@ -38,12 +38,14 @@ export function useChartLibrary() {
     name: string;
     nodes: FlowNode[];
     edges: FlowEdge[];
+    flowDirection?: FlowchartDirection;
   }): ChartRecord => {
     const now = Date.now();
     const record: ChartRecord = {
       id: generateChartId(),
       name: input.name,
       updatedAt: now,
+      flowDirection: input.flowDirection ?? 'TD',
       nodes: input.nodes.map(stripNodeForPersist),
       edges: input.edges.map(stripEdgeForPersist),
     };
@@ -58,7 +60,7 @@ export function useChartLibrary() {
   const updateChart = useCallback(
     (
       id: string,
-      patch: Partial<Pick<ChartRecord, 'name' | 'nodes' | 'edges' | 'updatedAt'>>
+      patch: Partial<Pick<ChartRecord, 'name' | 'nodes' | 'edges' | 'flowDirection' | 'updatedAt'>>
     ): void => {
       setCharts((prev) => {
         const next = prev
@@ -87,10 +89,11 @@ export function useChartLibrary() {
   );
 
   const updateChartGraph = useCallback(
-    (id: string, nodes: FlowNode[], edges: FlowEdge[]): void => {
+    (id: string, nodes: FlowNode[], edges: FlowEdge[], flowDirection: FlowchartDirection): void => {
       updateChart(id, {
         nodes: nodes.map(stripNodeForPersist),
         edges: edges.map(stripEdgeForPersist),
+        flowDirection,
         updatedAt: Date.now(),
       });
     },

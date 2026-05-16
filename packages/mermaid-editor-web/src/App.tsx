@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useChartLibrary } from './hooks/useChartLibrary';
 import { createInitialEdges, createInitialNodes } from './flow/defaultGraph';
+import { serializeFlowchart } from './flow/serializeFlowchart';
+import {
+  chartFlowDirection,
+  persistedToFlowEdges,
+  persistedToFlowNodes,
+} from './storage/chartLibrary';
 import { DashboardPage } from './pages/DashboardPage';
 import { EditorPage } from './pages/EditorPage';
-import type { FlowEdge, FlowNode } from './flow/types';
+import { MermaidPreviewPage } from './pages/MermaidPreviewPage';
+import type { FlowchartDirection, FlowEdge, FlowNode } from './flow/types';
 
 export default function App() {
   const {
@@ -15,22 +22,24 @@ export default function App() {
     getChart,
   } = useChartLibrary();
 
-  const [view, setView] = useState<'dashboard' | 'editor'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'editor' | 'mermaidPreview'>('dashboard');
   const [activeChartId, setActiveChartId] = useState<string | null>(null);
+  const [mermaidPreviewSource, setMermaidPreviewSource] = useState<string | null>(null);
 
   const activeChart = activeChartId ? getChart(activeChartId) : undefined;
 
   useEffect(() => {
-    if (view === 'editor' && activeChartId && !getChart(activeChartId)) {
+    if ((view === 'editor' || view === 'mermaidPreview') && activeChartId && !getChart(activeChartId)) {
       setView('dashboard');
       setActiveChartId(null);
+      setMermaidPreviewSource(null);
     }
   }, [view, activeChartId, charts, getChart]);
 
   const onSaveGraph = useCallback(
-    (nodes: FlowNode[], edges: FlowEdge[]) => {
+    (nodes: FlowNode[], edges: FlowEdge[], flowDirection: FlowchartDirection) => {
       if (activeChartId) {
-        updateChartGraph(activeChartId, nodes, edges);
+        updateChartGraph(activeChartId, nodes, edges, flowDirection);
       }
     },
     [activeChartId, updateChartGraph]
@@ -52,9 +61,38 @@ export default function App() {
   }, []);
 
   const handleBackFromEditor = useCallback(() => {
+    setMermaidPreviewSource(null);
     setView('dashboard');
     setActiveChartId(null);
   }, []);
+
+  const handleBackFromMermaidPreview = useCallback(() => {
+    setMermaidPreviewSource(null);
+    setView('editor');
+  }, []);
+
+  const handleOpenMermaidPreview = useCallback((mermaidSource: string) => {
+    setMermaidPreviewSource(mermaidSource);
+    setView('mermaidPreview');
+  }, []);
+
+  if (view === 'mermaidPreview' && activeChart) {
+    const previewSource =
+      mermaidPreviewSource ??
+      serializeFlowchart(
+        persistedToFlowNodes(activeChart.nodes),
+        persistedToFlowEdges(activeChart.edges),
+        chartFlowDirection(activeChart)
+      );
+    return (
+      <MermaidPreviewPage
+        key={`preview-${activeChart.id}`}
+        chart={activeChart}
+        source={previewSource}
+        onBack={handleBackFromMermaidPreview}
+      />
+    );
+  }
 
   if (view === 'editor' && activeChart) {
     return (
@@ -63,6 +101,7 @@ export default function App() {
         chart={activeChart}
         onBack={handleBackFromEditor}
         onSaveGraph={onSaveGraph}
+        onOpenMermaidPreview={handleOpenMermaidPreview}
       />
     );
   }
@@ -77,6 +116,7 @@ export default function App() {
         deleteChart(id);
         if (activeChartId === id) {
           setActiveChartId(null);
+          setMermaidPreviewSource(null);
           setView('dashboard');
         }
       }}
