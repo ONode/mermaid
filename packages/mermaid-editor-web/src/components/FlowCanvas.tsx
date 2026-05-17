@@ -7,8 +7,10 @@ import {
   type Connection,
   type EdgeChange,
   type NodeChange,
+  type NodeMouseHandler,
   type NodeTypes,
 } from '@xyflow/react';
+import { useEffect } from 'react';
 import type { FlowEdge, FlowNode } from '../flow/types';
 import { FlowShapeNode } from './FlowShapeNode';
 
@@ -20,12 +22,83 @@ type FlowCanvasProps = {
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
   onConnect: (connection: Connection) => void;
+  onNodeDoubleClick?: NodeMouseHandler<FlowNode>;
+  keyboardShortcutsEnabled?: boolean;
+  canCopySelection?: boolean;
+  canPasteSelection?: boolean;
+  onCopySelection?: () => void;
+  onPasteSelection?: () => void;
 };
 
-export function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange, onConnect }: FlowCanvasProps) {
+function isEditableTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    target.closest('input, textarea, select, [contenteditable="true"]') !== null
+  );
+}
+
+function FlowCanvasKeyboardShortcuts({
+  enabled,
+  canCopySelection,
+  canPasteSelection,
+  onCopySelection,
+  onPasteSelection,
+}: {
+  enabled: boolean;
+  canCopySelection: boolean;
+  canPasteSelection: boolean;
+  onCopySelection: () => void;
+  onPasteSelection: () => void;
+}) {
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || isEditableTarget(e.target)) {
+        return;
+      }
+      const key = e.key.toLowerCase();
+      if (key === 'c' && canCopySelection) {
+        e.preventDefault();
+        onCopySelection();
+      } else if (key === 'v' && canPasteSelection) {
+        e.preventDefault();
+        onPasteSelection();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [enabled, canCopySelection, canPasteSelection, onCopySelection, onPasteSelection]);
+
+  return null;
+}
+
+export function FlowCanvas({
+  nodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  onNodeDoubleClick,
+  keyboardShortcutsEnabled = false,
+  canCopySelection = false,
+  canPasteSelection = false,
+  onCopySelection,
+  onPasteSelection,
+}: FlowCanvasProps) {
   return (
     <div className="flow-canvas-wrap">
       <ReactFlowProvider>
+        {keyboardShortcutsEnabled && onCopySelection && onPasteSelection ? (
+          <FlowCanvasKeyboardShortcuts
+            enabled={keyboardShortcutsEnabled}
+            canCopySelection={canCopySelection}
+            canPasteSelection={canPasteSelection}
+            onCopySelection={onCopySelection}
+            onPasteSelection={onPasteSelection}
+          />
+        ) : null}
         <ReactFlow
           colorMode="dark"
           nodes={nodes}
@@ -33,6 +106,7 @@ export function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange, onConne
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodeDoubleClick={onNodeDoubleClick}
           nodeTypes={nodeTypes}
           deleteKeyCode={['Backspace', 'Delete']}
           fitView

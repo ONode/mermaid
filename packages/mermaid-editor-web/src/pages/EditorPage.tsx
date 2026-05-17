@@ -3,6 +3,7 @@ import {
   useEdgesState,
   useNodesState,
   type Connection,
+  type NodeMouseHandler,
 } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlowCanvasPanel } from '../components/FlowCanvasPanel';
@@ -58,6 +59,8 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [renameDraft, setRenameDraft] = useState('');
   const renameTargetIdRef = useRef<string | null>(null);
+  const copiedNodeRef = useRef<FlowNode | null>(null);
+  const [hasCopiedNode, setHasCopiedNode] = useState(false);
   const generated = useMemo(
     () => serializeFlowchart(nodes, edges, flowDirection),
     [nodes, edges, flowDirection]
@@ -162,6 +165,38 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
     [setNodes]
   );
 
+  const copySelectedNode = useCallback(() => {
+    if (!singleSelection) {
+      return;
+    }
+    const node = nodes.find((n) => n.id === singleSelection.id);
+    if (!node) {
+      return;
+    }
+    copiedNodeRef.current = {
+      ...node,
+      data: { ...node.data },
+    };
+    setHasCopiedNode(true);
+  }, [nodes, singleSelection]);
+
+  const pasteCopiedNode = useCallback(() => {
+    const source = copiedNodeRef.current;
+    if (!source) {
+      return;
+    }
+    const id = `N${Date.now()}`;
+    const newNode: FlowNode = {
+      ...source,
+      id,
+      position: { x: source.position.x + 40, y: source.position.y + 40 },
+      selected: true,
+      data: { ...source.data },
+    };
+    copiedNodeRef.current = { ...newNode, selected: false };
+    setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), newNode]);
+  }, [setNodes]);
+
   const applyFillToSelection = useCallback(
     (fill: string | null) => {
       setNodes((ns) =>
@@ -196,6 +231,18 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
     setRenameDraft(singleSelection.label);
     setRenameModalOpen(true);
   }, [singleSelection]);
+
+  const onNodeDoubleClick = useCallback<NodeMouseHandler<FlowNode>>(
+    (_event, node) => {
+      if (!node.selected || nodes.filter((n) => n.selected).length !== 1) {
+        return;
+      }
+      renameTargetIdRef.current = node.id;
+      setRenameDraft(node.data.label);
+      setRenameModalOpen(true);
+    },
+    [nodes]
+  );
 
   const confirmRename = useCallback(() => {
     const id = renameTargetIdRef.current;
@@ -415,11 +462,16 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
           mermaidChartPreview={canvasMermaidPreview}
           mermaidPreviewSource={previewText}
           selectedCount={selectedCount}
+          canCopySelection={singleSelection !== null}
+          canPasteSelection={hasCopiedNode}
+          onCopySelection={copySelectedNode}
+          onPasteSelection={pasteCopiedNode}
           singleSelection={singleSelection}
           renameModalOpen={renameModalOpen}
           renameDraft={renameDraft}
           onRenameDraftChange={setRenameDraft}
           onOpenRenameModal={openRenameModal}
+          onNodeDoubleClick={onNodeDoubleClick}
           onConfirmRename={confirmRename}
           onCancelRenameModal={cancelRenameModal}
           onPickFill={applyFillToSelection}

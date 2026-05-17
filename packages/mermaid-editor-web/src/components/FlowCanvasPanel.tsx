@@ -1,4 +1,4 @@
-import type { Connection, EdgeChange, NodeChange } from '@xyflow/react';
+import type { Connection, EdgeChange, NodeChange, NodeMouseHandler } from '@xyflow/react';
 import mermaid from 'mermaid';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { FlowEdge, FlowNode, FlowShape } from '../flow/types';
@@ -32,11 +32,16 @@ export type FlowCanvasPanelProps = {
   mermaidChartPreview: boolean;
   mermaidPreviewSource: string;
   selectedCount: number;
+  canCopySelection: boolean;
+  canPasteSelection: boolean;
+  onCopySelection: () => void;
+  onPasteSelection: () => void;
   singleSelection: { id: string; label: string } | null;
   renameModalOpen: boolean;
   renameDraft: string;
   onRenameDraftChange: (value: string) => void;
   onOpenRenameModal: () => void;
+  onNodeDoubleClick: NodeMouseHandler<FlowNode>;
   onConfirmRename: () => void;
   onCancelRenameModal: () => void;
   onPickFill: (value: string | null) => void;
@@ -53,11 +58,16 @@ export function FlowCanvasPanel({
   mermaidChartPreview,
   mermaidPreviewSource,
   selectedCount,
+  canCopySelection,
+  canPasteSelection,
+  onCopySelection,
+  onPasteSelection,
   singleSelection,
   renameModalOpen,
   renameDraft,
   onRenameDraftChange,
   onOpenRenameModal,
+  onNodeDoubleClick,
   onConfirmRename,
   onCancelRenameModal,
   onPickFill,
@@ -154,6 +164,12 @@ export function FlowCanvasPanel({
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
+              onNodeDoubleClick={onNodeDoubleClick}
+              keyboardShortcutsEnabled={!textEditMode && !renameModalOpen}
+              canCopySelection={canCopySelection}
+              canPasteSelection={canPasteSelection}
+              onCopySelection={onCopySelection}
+              onPasteSelection={onPasteSelection}
             />
             <div className="flow-canvas-overlay" aria-live="polite">
               <NodeSelectionToolbar
