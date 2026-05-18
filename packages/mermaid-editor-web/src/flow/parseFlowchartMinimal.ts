@@ -1,3 +1,4 @@
+import { applyFlowEdgeStyle } from './edgeStyle';
 import type { FlowchartDirection, FlowEdge, FlowNode, FlowShape } from './types';
 
 export type ParseResult =
@@ -14,6 +15,9 @@ const SUBGRAPH_LINE = /^\s*subgraph\b/i;
 const DIRECTION_LINE = /^\s*direction\s+(TD|BT|LR|RL)\s*$/i;
 const END_LINE = /^\s*end\s*$/i;
 
+/** Cylinder: id[(label)] */
+const NODE_CYLINDER = /^\s*(\w+)\[\(([^)\n]*)\)\]\s*$/;
+const NODE_CYLINDER_QUOTED = /^\s*(\w+)\[\(\s*"((?:\\.|[^"\\])*)"\s*\)\]\s*$/;
 /** Unquoted rect: id[label] */
 const NODE_RECT = /^\s*(\w+)\[([^\]\n]+)\]\s*$/;
 /** Quoted rect: id["label with \" "] */
@@ -45,7 +49,15 @@ function unquote(s: string): string {
 /** Inline node after `-->` (trimmed); patterns mirror NODE_* without leading line whitespace. */
 function parseInlineNodeDef(s: string): { id: string; label: string; shape: FlowShape } | null {
   const t = s.trim();
-  let m = /^(\w+)\["((?:\\.|[^"\\])*)"\]\s*$/.exec(t);
+  let m = /^(\w+)\[\(\s*"((?:\\.|[^"\\])*)"\s*\)\]\s*$/.exec(t);
+  if (m) {
+    return { id: m[1], label: unquote(m[2]), shape: 'cylinder' };
+  }
+  m = /^(\w+)\[\(([^)\n]*)\)\]\s*$/.exec(t);
+  if (m) {
+    return { id: m[1], label: m[2], shape: 'cylinder' };
+  }
+  m = /^(\w+)\["((?:\\.|[^"\\])*)"\]\s*$/.exec(t);
   if (m) {
     return { id: m[1], label: unquote(m[2]), shape: 'rect' };
   }
@@ -142,7 +154,23 @@ export function parseFlowchartMinimal(text: string): ParseResult {
       continue;
     }
 
-    let m = NODE_RECT_QUOTED.exec(trimmed);
+    let m = NODE_CYLINDER_QUOTED.exec(trimmed);
+    if (m) {
+      const id = m[1];
+      const label = unquote(m[2]);
+      upsertNode(nodes, id, label, 'cylinder');
+      continue;
+    }
+
+    m = NODE_CYLINDER.exec(trimmed);
+    if (m) {
+      const id = m[1];
+      const label = m[2];
+      upsertNode(nodes, id, label, 'cylinder');
+      continue;
+    }
+
+    m = NODE_RECT_QUOTED.exec(trimmed);
     if (m) {
       const id = m[1];
       const label = unquote(m[2]);
@@ -212,12 +240,14 @@ export function parseFlowchartMinimal(text: string): ParseResult {
       if (inline) {
         upsertNode(nodes, inline.id, inline.label, inline.shape);
         const id = `e-${m[1]}-${inline.id}-${edges.length}`;
-        edges.push({
-          id,
-          source: m[1],
-          target: inline.id,
-          label: m[2].trim(),
-        });
+        edges.push(
+          applyFlowEdgeStyle({
+            id,
+            source: m[1],
+            target: inline.id,
+            label: m[2].trim(),
+          })
+        );
         continue;
       }
     }
@@ -228,7 +258,7 @@ export function parseFlowchartMinimal(text: string): ParseResult {
       if (inline) {
         upsertNode(nodes, inline.id, inline.label, inline.shape);
         const id = `e-${m[1]}-${inline.id}-${edges.length}`;
-        edges.push({ id, source: m[1], target: inline.id });
+        edges.push(applyFlowEdgeStyle({ id, source: m[1], target: inline.id }));
         continue;
       }
     }
@@ -236,19 +266,21 @@ export function parseFlowchartMinimal(text: string): ParseResult {
     m = EDGE_LAB.exec(trimmed);
     if (m) {
       const id = `e-${m[1]}-${m[3]}-${edges.length}`;
-      edges.push({
-        id,
-        source: m[1],
-        target: m[3],
-        label: m[2].trim(),
-      });
+      edges.push(
+        applyFlowEdgeStyle({
+          id,
+          source: m[1],
+          target: m[3],
+          label: m[2].trim(),
+        })
+      );
       continue;
     }
 
     m = EDGE.exec(trimmed);
     if (m) {
       const id = `e-${m[1]}-${m[2]}-${edges.length}`;
-      edges.push({ id, source: m[1], target: m[2] });
+      edges.push(applyFlowEdgeStyle({ id, source: m[1], target: m[2] }));
       continue;
     }
 

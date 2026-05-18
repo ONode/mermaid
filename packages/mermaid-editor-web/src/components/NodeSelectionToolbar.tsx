@@ -1,74 +1,113 @@
+import type { ResolvedFlowEdgeData } from '../flow/edgeStyle';
 import { FLOW_SHAPE_OPTIONS, PRESET_NODE_FILLS } from '../flow/presets';
-import type { FlowShape } from '../flow/types';
+import type { FlowEdgeArrowMode, FlowEdgeLineStyle, FlowEdgePathType, FlowShape } from '../flow/types';
+import { EdgeSelectionToolbar } from './EdgeSelectionToolbar';
+
+export type FlowRenameTarget = {
+  kind: 'node' | 'edge';
+  id: string;
+  label: string;
+};
 
 type NodeSelectionToolbarProps = {
   selectedCount: number;
-  singleSelection: { id: string; label: string } | null;
+  selectedNodeCount: number;
+  selectedEdgeCount: number;
+  singleRenameTarget: FlowRenameTarget | null;
+  singleEdgeStyle: ResolvedFlowEdgeData | null;
   onOpenRenameModal: () => void;
   onPickFill: (value: string | null) => void;
   onPickShape: (shape: FlowShape) => void;
+  onPickArrowMode: (mode: FlowEdgeArrowMode) => void;
+  onPickPathType: (pathType: FlowEdgePathType) => void;
+  onPickLineStyle: (lineStyle: FlowEdgeLineStyle) => void;
+  onPickEdgeColor: (color: string | null) => void;
 };
 
 export function NodeSelectionToolbar({
   selectedCount,
-  singleSelection,
+  selectedNodeCount,
+  selectedEdgeCount,
+  singleRenameTarget,
+  singleEdgeStyle,
   onOpenRenameModal,
   onPickFill,
   onPickShape,
+  onPickArrowMode,
+  onPickPathType,
+  onPickLineStyle,
+  onPickEdgeColor,
 }: NodeSelectionToolbarProps) {
   if (selectedCount <= 0) {
     return null;
   }
 
   return (
-    <div className="flow-selection-toolbar" role="toolbar" aria-label="Selected nodes">
+    <div className="flow-selection-toolbar" role="toolbar" aria-label="Canvas selection">
       <span className="flow-selection-toolbar__meta">
         {selectedCount} selected
       </span>
-      {singleSelection ? (
-        <div className="flow-selection-toolbar__group" role="group" aria-label="Node text">
+      {singleRenameTarget ? (
+        <div
+          className="flow-selection-toolbar__group"
+          role="group"
+          aria-label={singleRenameTarget.kind === 'edge' ? 'Edge label' : 'Node text'}
+        >
           <button
             type="button"
             className="flow-selection-toolbar__rename-btn"
             onClick={onOpenRenameModal}
           >
-            Rename
+            {singleRenameTarget.kind === 'edge' ? 'Label' : 'Rename'}
           </button>
         </div>
       ) : null}
-      <div className="flow-selection-toolbar__group" role="group" aria-label="Background color">
-        <span className="flow-selection-toolbar__label">Fill</span>
-        <div className="flow-selection-toolbar__swatches">
-          {PRESET_NODE_FILLS.map((fill, i) => (
-            <button
-              key={`${fill ?? 'default'}-${i}`}
-              type="button"
-              className={`flow-selection-toolbar__swatch${fill === null ? ' flow-selection-toolbar__swatch--reset' : ''}`}
-              style={fill ? { background: fill } : undefined}
-              title={fill === null ? 'Default fill' : fill}
-              aria-label={fill === null ? 'Default fill' : `Set fill ${fill}`}
-              onClick={() => onPickFill(fill)}
-            />
-          ))}
-        </div>
-      </div>
-      <div className="flow-selection-toolbar__group" role="group" aria-label="Node shape">
-        <span className="flow-selection-toolbar__label">Shape</span>
-        <div className="flow-selection-toolbar__shapes">
-          {FLOW_SHAPE_OPTIONS.map(({ shape, label, hint }) => (
-            <button
-              key={shape}
-              type="button"
-              className="flow-selection-toolbar__shape-btn"
-              title={`${label} (${hint})`}
-              onClick={() => onPickShape(shape)}
-            >
-              <span className="flow-selection-toolbar__shape-name">{label}</span>
-              <span className="flow-selection-toolbar__shape-hint">{hint}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      {selectedEdgeCount > 0 ? (
+        <EdgeSelectionToolbar
+          edgeStyle={singleEdgeStyle}
+          onPickArrowMode={onPickArrowMode}
+          onPickPathType={onPickPathType}
+          onPickLineStyle={onPickLineStyle}
+          onPickEdgeColor={onPickEdgeColor}
+        />
+      ) : null}
+      {selectedNodeCount > 0 ? (
+        <>
+          <div className="flow-selection-toolbar__group" role="group" aria-label="Background color">
+            <span className="flow-selection-toolbar__label">Fill</span>
+            <div className="flow-selection-toolbar__swatches">
+              {PRESET_NODE_FILLS.map((fill, i) => (
+                <button
+                  key={`${fill ?? 'default'}-${i}`}
+                  type="button"
+                  className={`flow-selection-toolbar__swatch${fill === null ? ' flow-selection-toolbar__swatch--reset' : ''}`}
+                  style={fill ? { background: fill } : undefined}
+                  title={fill === null ? 'Default fill' : fill}
+                  aria-label={fill === null ? 'Default fill' : `Set fill ${fill}`}
+                  onClick={() => onPickFill(fill)}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flow-selection-toolbar__group" role="group" aria-label="Node shape">
+            <span className="flow-selection-toolbar__label">Shape</span>
+            <div className="flow-selection-toolbar__shapes">
+              {FLOW_SHAPE_OPTIONS.map(({ shape, label, hint }) => (
+                <button
+                  key={shape}
+                  type="button"
+                  className="flow-selection-toolbar__shape-btn"
+                  title={`${label} (${hint})`}
+                  onClick={() => onPickShape(shape)}
+                >
+                  <span className="flow-selection-toolbar__shape-name">{label}</span>
+                  <span className="flow-selection-toolbar__shape-hint">{hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

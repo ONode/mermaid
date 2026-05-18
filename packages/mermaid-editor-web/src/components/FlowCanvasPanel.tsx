@@ -1,9 +1,18 @@
-import type { Connection, EdgeChange, NodeChange, NodeMouseHandler } from '@xyflow/react';
+import type { Connection, EdgeChange, EdgeMouseHandler, NodeChange, NodeMouseHandler } from '@xyflow/react';
 import mermaid from 'mermaid';
 import { useEffect, useId, useRef, useState } from 'react';
-import type { FlowEdge, FlowNode, FlowShape } from '../flow/types';
+import { useAppTheme } from '../context/AppThemeContext';
+import type { ResolvedFlowEdgeData } from '../flow/edgeStyle';
+import type {
+  FlowEdge,
+  FlowEdgeArrowMode,
+  FlowEdgeLineStyle,
+  FlowEdgePathType,
+  FlowNode,
+  FlowShape,
+} from '../flow/types';
 import { FlowCanvas } from './FlowCanvas';
-import { NodeSelectionToolbar } from './NodeSelectionToolbar';
+import { NodeSelectionToolbar, type FlowRenameTarget } from './NodeSelectionToolbar';
 
 function formatMermaidCanvasError(err: unknown): string {
   if (typeof err === 'string') {
@@ -32,20 +41,29 @@ export type FlowCanvasPanelProps = {
   mermaidChartPreview: boolean;
   mermaidPreviewSource: string;
   selectedCount: number;
+  selectedNodeCount: number;
+  selectedEdgeCount: number;
+  singleEdgeStyle: ResolvedFlowEdgeData | null;
   canCopySelection: boolean;
   canPasteSelection: boolean;
   onCopySelection: () => void;
   onPasteSelection: () => void;
-  singleSelection: { id: string; label: string } | null;
+  singleRenameTarget: FlowRenameTarget | null;
   renameModalOpen: boolean;
+  renameModalKind: 'node' | 'edge';
   renameDraft: string;
   onRenameDraftChange: (value: string) => void;
   onOpenRenameModal: () => void;
   onNodeDoubleClick: NodeMouseHandler<FlowNode>;
+  onEdgeDoubleClick: EdgeMouseHandler<FlowEdge>;
   onConfirmRename: () => void;
   onCancelRenameModal: () => void;
   onPickFill: (value: string | null) => void;
   onPickShape: (shape: FlowShape) => void;
+  onPickArrowMode: (mode: FlowEdgeArrowMode) => void;
+  onPickPathType: (pathType: FlowEdgePathType) => void;
+  onPickLineStyle: (lineStyle: FlowEdgeLineStyle) => void;
+  onPickEdgeColor: (color: string | null) => void;
   nodes: FlowNode[];
   edges: FlowEdge[];
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
@@ -58,26 +76,36 @@ export function FlowCanvasPanel({
   mermaidChartPreview,
   mermaidPreviewSource,
   selectedCount,
+  selectedNodeCount,
+  selectedEdgeCount,
+  singleEdgeStyle,
   canCopySelection,
   canPasteSelection,
   onCopySelection,
   onPasteSelection,
-  singleSelection,
+  singleRenameTarget,
   renameModalOpen,
+  renameModalKind,
   renameDraft,
   onRenameDraftChange,
   onOpenRenameModal,
   onNodeDoubleClick,
+  onEdgeDoubleClick,
   onConfirmRename,
   onCancelRenameModal,
   onPickFill,
   onPickShape,
+  onPickArrowMode,
+  onPickPathType,
+  onPickLineStyle,
+  onPickEdgeColor,
   nodes,
   edges,
   onNodesChange,
   onEdgesChange,
   onConnect,
 }: FlowCanvasPanelProps) {
+  const { theme } = useAppTheme();
   const titleId = useId();
   const fieldId = useId();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -118,7 +146,7 @@ export function FlowCanvasPanel({
     return () => {
       mermaidRenderSeq.current += 1;
     };
-  }, [mermaidChartPreview, mermaidPreviewSource]);
+  }, [mermaidChartPreview, mermaidPreviewSource, theme]);
 
   useEffect(() => {
     if (!renameModalOpen) {
@@ -165,6 +193,7 @@ export function FlowCanvasPanel({
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onNodeDoubleClick={onNodeDoubleClick}
+              onEdgeDoubleClick={onEdgeDoubleClick}
               keyboardShortcutsEnabled={!textEditMode && !renameModalOpen}
               canCopySelection={canCopySelection}
               canPasteSelection={canPasteSelection}
@@ -174,10 +203,17 @@ export function FlowCanvasPanel({
             <div className="flow-canvas-overlay" aria-live="polite">
               <NodeSelectionToolbar
                 selectedCount={selectedCount}
-                singleSelection={singleSelection}
+                selectedNodeCount={selectedNodeCount}
+                selectedEdgeCount={selectedEdgeCount}
+                singleRenameTarget={singleRenameTarget}
+                singleEdgeStyle={singleEdgeStyle}
                 onOpenRenameModal={onOpenRenameModal}
                 onPickFill={onPickFill}
                 onPickShape={onPickShape}
+                onPickArrowMode={onPickArrowMode}
+                onPickPathType={onPickPathType}
+                onPickLineStyle={onPickLineStyle}
+                onPickEdgeColor={onPickEdgeColor}
               />
             </div>
           </div>
@@ -201,7 +237,7 @@ export function FlowCanvasPanel({
             aria-labelledby={titleId}
           >
             <h2 id={titleId} className="flow-rename-modal__title">
-              Rename node
+              {renameModalKind === 'edge' ? 'Edge label' : 'Rename node'}
             </h2>
             <label className="flow-rename-modal__label" htmlFor={fieldId}>
               Label

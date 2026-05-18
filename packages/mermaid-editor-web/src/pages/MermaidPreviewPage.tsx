@@ -5,19 +5,25 @@ export type MermaidPreviewPageProps = {
   chart: ChartRecord;
   /** Mermaid source to render (typically live from the editor). */
   source: string;
+  backLabel?: string;
   onBack: () => void;
 };
 
 /**
  * Full-page Mermaid render for the current chart.
  */
-export function MermaidPreviewPage({ chart, source, onBack }: MermaidPreviewPageProps) {
+export function MermaidPreviewPage({
+  chart,
+  source,
+  backLabel = '← Editor',
+  onBack,
+}: MermaidPreviewPageProps) {
   return (
     <div className="app-root app-root--mermaid-preview-page">
       <header className="app-header">
         <div className="app-header__brand">
           <button type="button" className="app-header__back" onClick={onBack}>
-            ← Editor
+            {backLabel}
           </button>
           <span className="app-header__sep" aria-hidden="true">
             |

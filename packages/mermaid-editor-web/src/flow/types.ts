@@ -4,7 +4,7 @@ import type { Edge, Node } from '@xyflow/react';
 export type FlowchartDirection = 'TD' | 'LR' | 'RL' | 'TB' | 'BT';
 
 /** Mermaid flowchart node shapes supported by parse/serialize. */
-export type FlowShape = 'rect' | 'stadium' | 'diamond' | 'circle';
+export type FlowShape = 'rect' | 'stadium' | 'cylinder' | 'diamond' | 'circle';
 
 export type FlowNodeData = {
   label: string;
@@ -15,4 +15,20 @@ export type FlowNodeData = {
 
 export type FlowNode = Node<FlowNodeData, 'flow'>;
 
-export type FlowEdge = Edge;
+/** React Flow edge path algorithm. */
+export type FlowEdgePathType = 'smoothstep' | 'step' | 'default' | 'straight';
+
+/** Canvas stroke pattern (Mermaid export stays solid `–>` for now). */
+export type FlowEdgeLineStyle = 'solid' | 'dashed';
+
+export type FlowEdgeArrowMode = 'end' | 'start' | 'both' | 'none';
+
+export type FlowEdgeData = {
+  pathType?: FlowEdgePathType;
+  lineStyle?: FlowEdgeLineStyle;
+  strokeColor?: string | null;
+  arrowStart?: boolean;
+  arrowEnd?: boolean;
+};
+
+export type FlowEdge = Edge<FlowEdgeData>;

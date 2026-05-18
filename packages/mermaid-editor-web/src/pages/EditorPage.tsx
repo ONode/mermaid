@@ -3,12 +3,20 @@ import {
   useEdgesState,
   useNodesState,
   type Connection,
+  type EdgeMouseHandler,
   type NodeMouseHandler,
 } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlowCanvasPanel } from '../components/FlowCanvasPanel';
+import type { FlowRenameTarget } from '../components/NodeSelectionToolbar';
 import { MermaidSourcePanel } from '../components/MermaidSourcePanel';
 import { createInitialEdges, createInitialNodes } from '../flow/defaultGraph';
+import {
+  createFlowEdge,
+  flagsFromArrowMode,
+  patchFlowEdgeData,
+  resolveFlowEdgeData,
+} from '../flow/edgeStyle';
 import { parseFlowchartMinimal } from '../flow/parseFlowchartMinimal';
 import { serializeFlowchart } from '../flow/serializeFlowchart';
 import {
@@ -17,7 +25,20 @@ import {
   persistedToFlowNodes,
   type ChartRecord,
 } from '../storage/chartLibrary';
-import type { FlowchartDirection, FlowEdge, FlowNode, FlowShape } from '../flow/types';
+import type {
+  FlowchartDirection,
+  FlowEdge,
+  FlowEdgeArrowMode,
+  FlowEdgeData,
+  FlowEdgeLineStyle,
+  FlowEdgePathType,
+  FlowNode,
+  FlowShape,
+} from '../flow/types';
+
+function edgeLabelText(label: FlowEdge['label']): string {
+  return typeof label === 'string' ? label : '';
+}
 
 function mergeNodePositions(prev: FlowNode[], next: FlowNode[]): FlowNode[] {
   const pos = new Map(prev.map((n) => [n.id, n.position]));
@@ -46,8 +67,10 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
     chartFlowDirection(chart)
   );
 
-  const selectedCount = useMemo(() => nodes.filter((n) => n.selected).length, [nodes]);
-  const singleSelection = useMemo(() => {
+  const selectedNodeCount = useMemo(() => nodes.filter((n) => n.selected).length, [nodes]);
+  const selectedEdgeCount = useMemo(() => edges.filter((e) => e.selected).length, [edges]);
+  const selectedCount = selectedNodeCount + selectedEdgeCount;
+  const singleNodeSelection = useMemo(() => {
     const sel = nodes.filter((n) => n.selected);
     if (sel.length !== 1) {
       return null;
@@ -55,8 +78,29 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
     const n = sel[0];
     return { id: n.id, label: n.data.label };
   }, [nodes]);
+  const singleRenameTarget = useMemo((): FlowRenameTarget | null => {
+    const selNodes = nodes.filter((n) => n.selected);
+    const selEdges = edges.filter((e) => e.selected);
+    if (selNodes.length === 1 && selEdges.length === 0) {
+      const n = selNodes[0];
+      return { kind: 'node', id: n.id, label: n.data.label };
+    }
+    if (selEdges.length === 1 && selNodes.length === 0) {
+      const e = selEdges[0];
+      return { kind: 'edge', id: e.id, label: edgeLabelText(e.label) };
+    }
+    return null;
+  }, [nodes, edges]);
+  const singleEdgeStyle = useMemo(() => {
+    const sel = edges.filter((e) => e.selected);
+    if (sel.length !== 1) {
+      return null;
+    }
+    return resolveFlowEdgeData(sel[0]);
+  }, [edges]);
 
   const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [renameModalKind, setRenameModalKind] = useState<'node' | 'edge'>('node');
   const [renameDraft, setRenameDraft] = useState('');
   const renameTargetIdRef = useRef<string | null>(null);
   const copiedNodeRef = useRef<FlowNode | null>(null);
@@ -103,12 +147,17 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
       return;
     }
     const target = renameTargetIdRef.current;
-    if (!target || !singleSelection || singleSelection.id !== target) {
+    if (
+      !target ||
+      !singleRenameTarget ||
+      singleRenameTarget.id !== target ||
+      singleRenameTarget.kind !== renameModalKind
+    ) {
       setRenameModalOpen(false);
       renameTargetIdRef.current = null;
       setRenameDraft('');
     }
-  }, [renameModalOpen, singleSelection]);
+  }, [renameModalOpen, renameModalKind, singleRenameTarget]);
 
   useEffect(() => {
     if (!addNodeMenuOpen) {
@@ -143,7 +192,19 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
 
   const onConnect = useCallback(
     (c: Connection) => {
-      setEdges((eds) => addEdge({ ...c, id: `e-${c.source}-${c.target}-${eds.length}` }, eds));
+      setEdges((eds) =>
+        addEdge(
+          createFlowEdge({ ...c, id: `e-${c.source}-${c.target}-${eds.length}` }),
+          eds
+        )
+      );
+    },
+    [setEdges]
+  );
+
+  const updateSelectedEdges = useCallback(
+    (patch: Partial<FlowEdgeData>) => {
+      setEdges((es) => es.map((e) => (e.selected ? patchFlowEdgeData(e, patch) : e)));
     },
     [setEdges]
   );
@@ -151,7 +212,8 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
   const addNodeOfShape = useCallback(
     (shape: FlowShape) => {
       const id = `N${Date.now()}`;
-      const label = shape === 'diamond' ? 'Decision?' : 'New node';
+      const label =
+        shape === 'diamond' ? 'Decision?' : shape === 'cylinder' ? 'Database' : 'New node';
       setNodes((ns) => [
         ...ns,
         {
@@ -166,10 +228,10 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
   );
 
   const copySelectedNode = useCallback(() => {
-    if (!singleSelection) {
+    if (!singleNodeSelection) {
       return;
     }
-    const node = nodes.find((n) => n.id === singleSelection.id);
+    const node = nodes.find((n) => n.id === singleNodeSelection.id);
     if (!node) {
       return;
     }
@@ -178,7 +240,7 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
       data: { ...node.data },
     };
     setHasCopiedNode(true);
-  }, [nodes, singleSelection]);
+  }, [nodes, singleNodeSelection]);
 
   const pasteCopiedNode = useCallback(() => {
     const source = copiedNodeRef.current;
@@ -223,25 +285,74 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
     [setNodes]
   );
 
+  const applyArrowModeToSelection = useCallback(
+    (mode: FlowEdgeArrowMode) => {
+      updateSelectedEdges(flagsFromArrowMode(mode));
+    },
+    [updateSelectedEdges]
+  );
+
+  const applyPathTypeToSelection = useCallback(
+    (pathType: FlowEdgePathType) => {
+      updateSelectedEdges({ pathType });
+    },
+    [updateSelectedEdges]
+  );
+
+  const applyLineStyleToSelection = useCallback(
+    (lineStyle: FlowEdgeLineStyle) => {
+      updateSelectedEdges({ lineStyle });
+    },
+    [updateSelectedEdges]
+  );
+
+  const applyEdgeColorToSelection = useCallback(
+    (strokeColor: string | null) => {
+      updateSelectedEdges({ strokeColor });
+    },
+    [updateSelectedEdges]
+  );
+
   const openRenameModal = useCallback(() => {
-    if (!singleSelection) {
+    if (!singleRenameTarget) {
       return;
     }
-    renameTargetIdRef.current = singleSelection.id;
-    setRenameDraft(singleSelection.label);
+    renameTargetIdRef.current = singleRenameTarget.id;
+    setRenameModalKind(singleRenameTarget.kind);
+    setRenameDraft(singleRenameTarget.label);
     setRenameModalOpen(true);
-  }, [singleSelection]);
+  }, [singleRenameTarget]);
 
   const onNodeDoubleClick = useCallback<NodeMouseHandler<FlowNode>>(
     (_event, node) => {
       if (!node.selected || nodes.filter((n) => n.selected).length !== 1) {
         return;
       }
+      if (edges.some((e) => e.selected)) {
+        return;
+      }
       renameTargetIdRef.current = node.id;
+      setRenameModalKind('node');
       setRenameDraft(node.data.label);
       setRenameModalOpen(true);
     },
-    [nodes]
+    [nodes, edges]
+  );
+
+  const onEdgeDoubleClick = useCallback<EdgeMouseHandler<FlowEdge>>(
+    (_event, edge) => {
+      if (!edge.selected || edges.filter((e) => e.selected).length !== 1) {
+        return;
+      }
+      if (nodes.some((n) => n.selected)) {
+        return;
+      }
+      renameTargetIdRef.current = edge.id;
+      setRenameModalKind('edge');
+      setRenameDraft(edgeLabelText(edge.label));
+      setRenameModalOpen(true);
+    },
+    [nodes, edges]
   );
 
   const confirmRename = useCallback(() => {
@@ -249,13 +360,30 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
     if (!id) {
       return;
     }
-    setNodes((ns) =>
-      ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, label: renameDraft } } : n))
-    );
+    if (renameModalKind === 'edge') {
+      const nextLabel = renameDraft.trim();
+      setEdges((es) =>
+        es.map((e) =>
+          e.id === id
+            ? patchFlowEdgeData(
+                {
+                  ...e,
+                  label: nextLabel.length > 0 ? nextLabel : undefined,
+                },
+                {}
+              )
+            : e
+        )
+      );
+    } else {
+      setNodes((ns) =>
+        ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, label: renameDraft } } : n))
+      );
+    }
     renameTargetIdRef.current = null;
     setRenameModalOpen(false);
     setRenameDraft('');
-  }, [renameDraft, setNodes]);
+  }, [renameDraft, renameModalKind, setEdges, setNodes]);
 
   const cancelRenameModal = useCallback(() => {
     renameTargetIdRef.current = null;
@@ -403,6 +531,17 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
                     className="app-header__add-node-menuitem"
                     role="menuitem"
                     onClick={() => {
+                      addNodeOfShape('cylinder');
+                      setAddNodeMenuOpen(false);
+                    }}
+                  >
+                    Cylinder
+                  </button>
+                  <button
+                    type="button"
+                    className="app-header__add-node-menuitem"
+                    role="menuitem"
+                    onClick={() => {
                       addNodeOfShape('diamond');
                       setAddNodeMenuOpen(false);
                     }}
@@ -462,20 +601,29 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
           mermaidChartPreview={canvasMermaidPreview}
           mermaidPreviewSource={previewText}
           selectedCount={selectedCount}
-          canCopySelection={singleSelection !== null}
+          selectedNodeCount={selectedNodeCount}
+          selectedEdgeCount={selectedEdgeCount}
+          singleEdgeStyle={singleEdgeStyle}
+          canCopySelection={singleNodeSelection !== null}
           canPasteSelection={hasCopiedNode}
           onCopySelection={copySelectedNode}
           onPasteSelection={pasteCopiedNode}
-          singleSelection={singleSelection}
+          singleRenameTarget={singleRenameTarget}
           renameModalOpen={renameModalOpen}
+          renameModalKind={renameModalKind}
           renameDraft={renameDraft}
           onRenameDraftChange={setRenameDraft}
           onOpenRenameModal={openRenameModal}
           onNodeDoubleClick={onNodeDoubleClick}
+          onEdgeDoubleClick={onEdgeDoubleClick}
           onConfirmRename={confirmRename}
           onCancelRenameModal={cancelRenameModal}
           onPickFill={applyFillToSelection}
           onPickShape={applyShapeToSelection}
+          onPickArrowMode={applyArrowModeToSelection}
+          onPickPathType={applyPathTypeToSelection}
+          onPickLineStyle={applyLineStyleToSelection}
+          onPickEdgeColor={applyEdgeColorToSelection}
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}

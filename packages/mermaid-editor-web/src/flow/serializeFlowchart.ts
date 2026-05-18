@@ -33,6 +33,13 @@ function formatCircleLabel(label: string): string {
   return label;
 }
 
+function formatCylinderLabel(label: string): string {
+  if (/[\n\[\]"<>]|^\s|\s$/.test(label)) {
+    return `"${escapeQuotedLabel(label)}"`;
+  }
+  return label;
+}
+
 function formatNodeLine(node: FlowNode): string {
   const { label, shape } = node.data;
   if (shape === 'diamond') {
@@ -46,6 +53,10 @@ function formatNodeLine(node: FlowNode): string {
   if (shape === 'stadium') {
     const inner = formatStadiumLabel(label);
     return `    ${node.id}([${inner}])`;
+  }
+  if (shape === 'cylinder') {
+    const inner = formatCylinderLabel(label);
+    return `    ${node.id}[(${inner})]`;
   }
   const inner = formatRectLabel(label);
   return `    ${node.id}[${inner}]`;

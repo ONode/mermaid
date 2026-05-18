@@ -1,4 +1,6 @@
 import { ChartThumbnail } from '../components/ChartThumbnail';
+import { ThemeToggleButton } from '../components/ThemeToggleButton';
+import { useAppTheme } from '../context/AppThemeContext';
 import {
   chartFlowDirection,
   persistedToFlowEdges,
@@ -28,6 +30,7 @@ type DashboardPageProps = {
   charts: ChartRecord[];
   onCreateChart: () => void;
   onOpenChart: (id: string) => void;
+  onEditChart: (id: string) => void;
   onRenameChart: (id: string, name: string) => void;
   onDeleteChart: (id: string) => void;
 };
@@ -36,9 +39,12 @@ export function DashboardPage({
   charts,
   onCreateChart,
   onOpenChart,
+  onEditChart,
   onRenameChart,
   onDeleteChart,
 }: DashboardPageProps) {
+  const { theme, toggleTheme } = useAppTheme();
+
   return (
     <div className="app-root app-root--dashboard">
       <header className="app-header">
@@ -51,6 +57,7 @@ export function DashboardPage({
         </div>
         <div className="app-header__right">
           <div className="app-header__actions">
+            <ThemeToggleButton theme={theme} onToggle={toggleTheme} />
             <button type="button" className="app-header__btn-accent" onClick={onCreateChart}>
               Create chart
             </button>
@@ -79,7 +86,7 @@ export function DashboardPage({
                   type="button"
                   className="dashboard-card__preview"
                   onClick={() => onOpenChart(chart.id)}
-                  aria-label={`Open chart ${chart.name}`}
+                  aria-label={`Preview chart ${chart.name}`}
                 >
                   <ChartThumbnail
                     nodes={persistedToFlowNodes(chart.nodes)}
@@ -100,7 +107,7 @@ export function DashboardPage({
                     <button type="button" onClick={() => onOpenChart(chart.id)}>
                       Open
                     </button>
-                    <button type="button" onClick={() => onOpenChart(chart.id)}>
+                    <button type="button" onClick={() => onEditChart(chart.id)}>
                       Edit
                     </button>
                     <button

@@ -1,3 +1,4 @@
+import { applyFlowEdgeStyle } from './edgeStyle';
 import type { FlowEdge, FlowNode } from './types';
 
 const templateNodes: FlowNode[] = [
@@ -22,8 +23,8 @@ const templateNodes: FlowNode[] = [
 ];
 
 const templateEdges: FlowEdge[] = [
-  { id: 'e-A-B', source: 'A', target: 'B' },
-  { id: 'e-B-C', source: 'B', target: 'C' },
+  applyFlowEdgeStyle({ id: 'e-A-B', source: 'A', target: 'B' }),
+  applyFlowEdgeStyle({ id: 'e-B-C', source: 'B', target: 'C' }),
 ];
 
 export function createInitialNodes(): FlowNode[] {

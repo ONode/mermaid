@@ -1,5 +1,6 @@
 import mermaid from 'mermaid';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAppTheme } from '../context/AppThemeContext';
 
 function formatMermaidError(err: unknown): string {
   if (typeof err === 'string') {
@@ -36,6 +37,7 @@ export type MermaidPreviewPanelProps = {
  * Debounced `mermaid.run` for the given source string.
  */
 export function MermaidPreviewPanel({ source, className }: MermaidPreviewPanelProps) {
+  const { theme } = useAppTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const renderSeq = useRef(0);
   const [mermaidError, setMermaidError] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export function MermaidPreviewPanel({ source, className }: MermaidPreviewPanelPr
     return () => {
       window.clearTimeout(handle);
     };
-  }, [source, runRender]);
+  }, [source, runRender, theme]);
 
   return (
     <section className={['panel', 'panel--preview', className].filter(Boolean).join(' ')}>

@@ -1,5 +1,6 @@
 /* SynthEdge-inspired terminal theme (design-md/sythedge) */
-:root {
+:root,
+[data-theme='dark'] {
   --color-bg-primary: #0c0c0c;
   --color-bg-secondary: #0a0a0a;
   --color-bg-tertiary: #141414;
@@ -15,7 +16,41 @@
   --color-text-secondary: #8a8a8a;
   --color-text-muted: #6a6a6a;
   --color-border-dim: #2f2f2f;
+  --color-accent-surface: rgba(245, 248, 194, 0.1);
+  --color-accent-surface-hover: rgba(245, 248, 194, 0.18);
+  --color-accent-border: rgba(245, 248, 194, 0.3);
+  --color-accent-border-hover: rgba(245, 248, 194, 0.4);
+  --color-accent-border-strong: rgba(245, 248, 194, 0.45);
+  --color-accent-focus: rgba(245, 248, 194, 0.35);
+  --color-accent-glow: rgba(245, 248, 194, 0.12);
+  --color-accent-pattern: rgba(245, 248, 194, 0.07);
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+[data-theme='light'] {
+  --color-bg-primary: #eeeee8;
+  --color-bg-secondary: #f6f6f2;
+  --color-bg-tertiary: #ffffff;
+  --color-bg-hover: #e4e4de;
+  --color-bg-sidebar: #e8e8e2;
+  --color-neon-green: #4a5d23;
+  --color-neon-green-muted: #5c6f32;
+  --color-bull: #15803d;
+  --color-bear: #be123c;
+  --color-neutral: #a16207;
+  --color-warning: #c2410c;
+  --color-text-primary: #141414;
+  --color-text-secondary: #525252;
+  --color-text-muted: #737373;
+  --color-border-dim: #c9c9c2;
+  --color-accent-surface: rgba(74, 93, 35, 0.1);
+  --color-accent-surface-hover: rgba(74, 93, 35, 0.16);
+  --color-accent-border: rgba(74, 93, 35, 0.28);
+  --color-accent-border-hover: rgba(74, 93, 35, 0.38);
+  --color-accent-border-strong: rgba(74, 93, 35, 0.5);
+  --color-accent-focus: rgba(74, 93, 35, 0.35);
+  --color-accent-glow: rgba(74, 93, 35, 0.1);
+  --color-accent-pattern: rgba(74, 93, 35, 0.1);
 }
 
 *,
@@ -26,6 +61,10 @@
 
 html {
   color-scheme: dark;
+}
+
+html[data-theme='light'] {
+  color-scheme: light;
 }
 
 body {
@@ -168,16 +207,46 @@ body {
   cursor: not-allowed;
 }
 
-.app-header__btn-accent {
-  background: rgba(245, 248, 194, 0.1);
+.app-header__theme-toggle {
+  padding: 5px 10px;
+  border: 1px solid var(--color-border-dim);
+  border-radius: 0;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.app-header__theme-toggle:hover {
+  border-color: var(--color-accent-border);
   color: var(--color-neon-green);
-  border-color: rgba(245, 248, 194, 0.3);
+  background: var(--color-accent-surface);
+}
+
+.app-header__theme-toggle:focus-visible {
+  outline: 1px solid var(--color-accent-border-strong);
+  outline-offset: 1px;
+}
+
+.app-header__theme-toggle[aria-pressed='true'] {
+  border-color: var(--color-accent-border-strong);
+  color: var(--color-neon-green);
+  background: var(--color-accent-surface-hover);
+}
+
+.app-header__btn-accent {
+  background: var(--color-accent-surface);
+  color: var(--color-neon-green);
+  border-color: var(--color-accent-border);
 }
 
 .app-header__btn-accent:hover:not(:disabled) {
-  background: rgba(245, 248, 194, 0.18);
+  background: var(--color-accent-surface-hover);
   color: var(--color-neon-green);
-  border-color: rgba(245, 248, 194, 0.4);
+  border-color: var(--color-accent-border-hover);
 }
 
 .app-header__add-node {
@@ -505,6 +574,87 @@ body {
 .flow-selection-toolbar__rename-btn:focus-visible {
   outline: 1px solid rgba(245, 248, 194, 0.45);
   outline-offset: 1px;
+}
+
+.flow-selection-toolbar__edge-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.flow-selection-toolbar__edge-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 44px;
+  padding: 4px 6px;
+  border: 1px solid var(--color-border-dim);
+  border-radius: 0;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.flow-selection-toolbar__edge-btn:hover {
+  border-color: rgba(245, 248, 194, 0.3);
+  color: var(--color-neon-green-muted);
+}
+
+.flow-selection-toolbar__edge-btn--active {
+  border-color: rgba(245, 248, 194, 0.45);
+  color: var(--color-neon-green);
+  box-shadow: inset 0 0 0 1px rgba(245, 248, 194, 0.12);
+}
+
+.flow-selection-toolbar__edge-btn:focus-visible {
+  outline: 1px solid rgba(245, 248, 194, 0.45);
+  outline-offset: 1px;
+}
+
+.flow-selection-toolbar__edge-btn--arrow {
+  min-width: 36px;
+  padding: 6px 8px;
+}
+
+.flow-selection-toolbar__edge-btn-glyph {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--color-text-primary);
+}
+
+.flow-selection-toolbar__edge-btn-name {
+  color: var(--color-text-primary);
+}
+
+.flow-selection-toolbar__edge-btn-hint {
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.flow-selection-toolbar__edge-btn--line {
+  min-width: 52px;
+}
+
+.flow-selection-toolbar__line-preview {
+  display: block;
+  width: 28px;
+  height: 0;
+  border-top: 2px solid currentColor;
+}
+
+.flow-selection-toolbar__line-preview--dashed {
+  border-top-style: dashed;
+}
+
+.flow-selection-toolbar__swatch--active {
+  border-color: rgba(245, 248, 194, 0.65);
+  box-shadow: 0 0 0 1px rgba(245, 248, 194, 0.35);
 }
 
 .flow-rename-modal {
@@ -850,12 +1000,12 @@ body {
 
 /* React Flow — SynthEdge-aligned overrides */
 .flow-canvas-wrap .react-flow {
-  --xy-background-pattern-dots-color-default: rgba(245, 248, 194, 0.07);
+  --xy-background-pattern-dots-color-default: var(--color-accent-pattern);
   --xy-edge-stroke-default: #4a4a4a;
   --xy-edge-stroke-selected-default: var(--color-neon-green);
-  --xy-connectionline-stroke-default: rgba(245, 248, 194, 0.35);
+  --xy-connectionline-stroke-default: var(--color-accent-border);
   --xy-handle-background-color-default: var(--color-bg-tertiary);
-  --xy-handle-border-color-default: rgba(245, 248, 194, 0.45);
+  --xy-handle-border-color-default: var(--color-accent-border-strong);
   --xy-minimap-background-color-default: var(--color-bg-sidebar);
   --xy-controls-button-background-color-default: var(--color-bg-sidebar);
   --xy-controls-button-background-color-hover-default: var(--color-bg-hover);
@@ -863,8 +1013,12 @@ body {
   --xy-controls-button-color-hover-default: var(--color-text-secondary);
   --xy-controls-button-border-color-default: var(--color-border-dim);
   --xy-controls-box-shadow-default: none;
-  --xy-selection-background-color-default: rgba(245, 248, 194, 0.06);
-  --xy-selection-border-default: 1px dotted rgba(245, 248, 194, 0.5);
+  --xy-selection-background-color-default: var(--color-accent-glow);
+  --xy-selection-border-default: 1px dotted var(--color-accent-border-strong);
+}
+
+[data-theme='light'] .flow-canvas-wrap .react-flow {
+  --xy-edge-stroke-default: #a3a3a3;
 }
 
 .flow-canvas-wrap .react-flow__controls-button {
@@ -881,7 +1035,7 @@ body {
   height: 8px;
   border-radius: 0;
   background: var(--color-bg-tertiary) !important;
-  border: 1px solid rgba(245, 248, 194, 0.4) !important;
+  border: 1px solid var(--color-accent-border-hover) !important;
 }
 
 .flow-node {
@@ -892,7 +1046,10 @@ body {
 .flow-node--selected .flow-node__rect-inner,
 .flow-node--selected .flow-node__diamond-inner,
 .flow-node--selected .flow-node__stadium-inner,
-.flow-node--selected .flow-node__circle-inner {
+.flow-node--selected .flow-node__circle-inner,
+.flow-node--selected .flow-node__cylinder-cap,
+.flow-node--selected .flow-node__cylinder-body,
+.flow-node--selected .flow-node__cylinder-base {
   box-shadow: 0 0 0 1px rgba(245, 248, 194, 0.45);
 }
 
@@ -914,6 +1071,57 @@ body {
   background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
   text-align: center;
+}
+
+.flow-node--cylinder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.flow-node__cylinder {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 108px;
+}
+
+.flow-node__cylinder-cap,
+.flow-node__cylinder-base {
+  height: 14px;
+  margin: 0 4px;
+  border: 1px solid var(--color-border-dim);
+  border-radius: 50%;
+  background: var(--color-bg-tertiary);
+}
+
+.flow-node__cylinder-cap {
+  margin-bottom: -7px;
+  z-index: 1;
+}
+
+.flow-node__cylinder-base {
+  margin-top: -7px;
+  z-index: 1;
+  opacity: 0.92;
+}
+
+.flow-node__cylinder-body {
+  min-height: 44px;
+  padding: 12px 14px 10px;
+  border-left: 1px solid var(--color-border-dim);
+  border-right: 1px solid var(--color-border-dim);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flow-node__cylinder-body .flow-node__label {
+  line-height: 1.2;
+  max-width: 120px;
 }
 
 .flow-node--circle {

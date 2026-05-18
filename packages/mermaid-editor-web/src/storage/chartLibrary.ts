@@ -1,4 +1,13 @@
-import type { FlowchartDirection, FlowEdge, FlowNode, FlowNodeData } from '../flow/types';
+import { applyFlowEdgeStyle } from '../flow/edgeStyle';
+import type {
+  FlowchartDirection,
+  FlowEdge,
+  FlowEdgeData,
+  FlowEdgeLineStyle,
+  FlowEdgePathType,
+  FlowNode,
+  FlowNodeData,
+} from '../flow/types';
 
 export const CHART_LIBRARY_STORAGE_KEY = 'mermaid-editor-web:charts';
 
@@ -16,6 +25,11 @@ export type PersistedEdge = {
   source: string;
   target: string;
   label?: string;
+  pathType?: FlowEdgePathType;
+  lineStyle?: FlowEdgeLineStyle;
+  strokeColor?: string;
+  arrowStart?: boolean;
+  arrowEnd?: boolean;
 };
 
 export type ChartRecord = {
@@ -33,7 +47,7 @@ export type ChartLibraryFile = {
   charts: ChartRecord[];
 };
 
-const SHAPES = new Set(['rect', 'stadium', 'diamond', 'circle']);
+const SHAPES = new Set(['rect', 'stadium', 'cylinder', 'diamond', 'circle']);
 const FLOW_DIRECTIONS = new Set<FlowchartDirection>(['TD', 'LR', 'RL', 'TB', 'BT']);
 
 export function chartFlowDirection(chart: ChartRecord): FlowchartDirection {
@@ -88,7 +102,42 @@ function isPersistedEdge(v: unknown): v is PersistedEdge {
   if (v.label !== undefined && typeof v.label !== 'string') {
     return false;
   }
+  if (v.pathType !== undefined && typeof v.pathType !== 'string') {
+    return false;
+  }
+  if (v.lineStyle !== undefined && typeof v.lineStyle !== 'string') {
+    return false;
+  }
+  if (v.strokeColor !== undefined && typeof v.strokeColor !== 'string') {
+    return false;
+  }
+  if (v.arrowStart !== undefined && typeof v.arrowStart !== 'boolean') {
+    return false;
+  }
+  if (v.arrowEnd !== undefined && typeof v.arrowEnd !== 'boolean') {
+    return false;
+  }
   return true;
+}
+
+function persistedEdgeData(e: PersistedEdge): FlowEdgeData | undefined {
+  const data: FlowEdgeData = {};
+  if (e.pathType !== undefined) {
+    data.pathType = e.pathType;
+  }
+  if (e.lineStyle !== undefined) {
+    data.lineStyle = e.lineStyle;
+  }
+  if (e.strokeColor !== undefined) {
+    data.strokeColor = e.strokeColor;
+  }
+  if (e.arrowStart !== undefined) {
+    data.arrowStart = e.arrowStart;
+  }
+  if (e.arrowEnd !== undefined) {
+    data.arrowEnd = e.arrowEnd;
+  }
+  return Object.keys(data).length > 0 ? data : undefined;
 }
 
 function isChartRecord(v: unknown): v is ChartRecord {
@@ -132,6 +181,22 @@ export function stripEdgeForPersist(e: FlowEdge): PersistedEdge {
   if (typeof e.label === 'string' && e.label.length > 0) {
     edge.label = e.label;
   }
+  const d = e.data;
+  if (d?.pathType !== undefined) {
+    edge.pathType = d.pathType;
+  }
+  if (d?.lineStyle !== undefined) {
+    edge.lineStyle = d.lineStyle;
+  }
+  if (typeof d?.strokeColor === 'string' && d.strokeColor.length > 0) {
+    edge.strokeColor = d.strokeColor;
+  }
+  if (d?.arrowStart !== undefined) {
+    edge.arrowStart = d.arrowStart;
+  }
+  if (d?.arrowEnd !== undefined) {
+    edge.arrowEnd = d.arrowEnd;
+  }
   return edge;
 }
 
@@ -146,15 +211,14 @@ export function persistedToFlowNodes(nodes: PersistedNode[]): FlowNode[] {
 
 export function persistedToFlowEdges(edges: PersistedEdge[]): FlowEdge[] {
   return edges.map((e) => {
-    const edge: FlowEdge = {
+    const data = persistedEdgeData(e);
+    return applyFlowEdgeStyle({
       id: e.id,
       source: e.source,
       target: e.target,
-    };
-    if (e.label !== undefined) {
-      edge.label = e.label;
-    }
-    return edge;
+      ...(e.label !== undefined ? { label: e.label } : {}),
+      ...(data !== undefined ? { data } : {}),
+    });
   });
 }
 

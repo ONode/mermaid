@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AppThemeProvider } from './context/AppThemeContext';
 import { useChartLibrary } from './hooks/useChartLibrary';
 import { createInitialEdges, createInitialNodes } from './flow/defaultGraph';
 import { serializeFlowchart } from './flow/serializeFlowchart';
@@ -13,6 +14,14 @@ import { MermaidPreviewPage } from './pages/MermaidPreviewPage';
 import type { FlowchartDirection, FlowEdge, FlowNode } from './flow/types';
 
 export default function App() {
+  return (
+    <AppThemeProvider>
+      <AppShell />
+    </AppThemeProvider>
+  );
+}
+
+function AppShell() {
   const {
     charts,
     createChart,
@@ -25,6 +34,7 @@ export default function App() {
   const [view, setView] = useState<'dashboard' | 'editor' | 'mermaidPreview'>('dashboard');
   const [activeChartId, setActiveChartId] = useState<string | null>(null);
   const [mermaidPreviewSource, setMermaidPreviewSource] = useState<string | null>(null);
+  const [previewReturnView, setPreviewReturnView] = useState<'dashboard' | 'editor'>('editor');
 
   const activeChart = activeChartId ? getChart(activeChartId) : undefined;
 
@@ -55,8 +65,29 @@ export default function App() {
     setView('editor');
   }, [createChart]);
 
-  const handleOpenChart = useCallback((id: string) => {
+  const handleOpenChart = useCallback(
+    (id: string) => {
+      const chart = getChart(id);
+      if (!chart) {
+        return;
+      }
+      setActiveChartId(id);
+      setMermaidPreviewSource(
+        serializeFlowchart(
+          persistedToFlowNodes(chart.nodes),
+          persistedToFlowEdges(chart.edges),
+          chartFlowDirection(chart)
+        )
+      );
+      setPreviewReturnView('dashboard');
+      setView('mermaidPreview');
+    },
+    [getChart]
+  );
+
+  const handleEditChart = useCallback((id: string) => {
     setActiveChartId(id);
+    setMermaidPreviewSource(null);
     setView('editor');
   }, []);
 
@@ -68,11 +99,15 @@ export default function App() {
 
   const handleBackFromMermaidPreview = useCallback(() => {
     setMermaidPreviewSource(null);
-    setView('editor');
-  }, []);
+    setView(previewReturnView);
+    if (previewReturnView === 'dashboard') {
+      setActiveChartId(null);
+    }
+  }, [previewReturnView]);
 
   const handleOpenMermaidPreview = useCallback((mermaidSource: string) => {
     setMermaidPreviewSource(mermaidSource);
+    setPreviewReturnView('editor');
     setView('mermaidPreview');
   }, []);
 
@@ -89,6 +124,7 @@ export default function App() {
         key={`preview-${activeChart.id}`}
         chart={activeChart}
         source={previewSource}
+        backLabel={previewReturnView === 'dashboard' ? '← Charts' : '← Editor'}
         onBack={handleBackFromMermaidPreview}
       />
     );
@@ -111,6 +147,7 @@ export default function App() {
       charts={charts}
       onCreateChart={handleCreateChart}
       onOpenChart={handleOpenChart}
+      onEditChart={handleEditChart}
       onRenameChart={renameChart}
       onDeleteChart={(id) => {
         deleteChart(id);

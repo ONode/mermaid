@@ -1,15 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import mermaid from 'mermaid';
 import '@xyflow/react/dist/style.css';
 import App from './App';
 import './index.css';
+import { applyAppTheme, initMermaidForTheme, readStoredAppTheme } from './theme/appTheme';
 
-mermaid.initialize({
-  startOnLoad: false,
-  securityLevel: 'loose',
-  theme: 'dark',
-});
+const initialTheme = readStoredAppTheme();
+applyAppTheme(initialTheme);
+initMermaidForTheme(initialTheme);
 
 const el = document.getElementById('root');
 if (!el) {

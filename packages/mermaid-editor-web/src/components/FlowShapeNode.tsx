@@ -54,6 +54,22 @@ export function FlowShapeNode({ data, selected }: NodeProps<FlowNode>) {
     );
   }
 
+  if (data.shape === 'cylinder') {
+    return (
+      <div className={`flow-node flow-node--cylinder ${selected ? 'flow-node--selected' : ''}`}>
+        <Handle className="flow-handle" position={Position.Top} type="target" />
+        <div className="flow-node__cylinder">
+          <div className="flow-node__cylinder-cap" style={surface} aria-hidden="true" />
+          <div className="flow-node__cylinder-body" style={surface}>
+            <span className="flow-node__label">{data.label}</span>
+          </div>
+          <div className="flow-node__cylinder-base" style={surface} aria-hidden="true" />
+        </div>
+        <Handle className="flow-handle" position={Position.Bottom} type="source" />
+      </div>
+    );
+  }
+
   return (
     <div className={`flow-node flow-node--rect ${selected ? 'flow-node--selected' : ''}`}>
       <Handle className="flow-handle" position={Position.Top} type="target" />

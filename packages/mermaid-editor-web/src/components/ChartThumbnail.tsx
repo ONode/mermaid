@@ -1,5 +1,6 @@
 import mermaid from 'mermaid';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAppTheme } from '../context/AppThemeContext';
 import { serializeFlowchart } from '../flow/serializeFlowchart';
 import type { FlowchartDirection, FlowEdge, FlowNode } from '../flow/types';
 
@@ -32,6 +33,7 @@ type ChartThumbnailProps = {
 };
 
 export function ChartThumbnail({ nodes, edges, flowDirection = 'TD' }: ChartThumbnailProps) {
+  const { theme } = useAppTheme();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [visible, setVisible] = useState(false);
@@ -88,7 +90,7 @@ export function ChartThumbnail({ nodes, edges, flowDirection = 'TD' }: ChartThum
       void runRender();
     }, 80);
     return () => window.clearTimeout(t);
-  }, [visible, runRender]);
+  }, [visible, runRender, theme]);
 
   return (
     <div ref={rootRef} className="chart-thumb" aria-hidden="true">

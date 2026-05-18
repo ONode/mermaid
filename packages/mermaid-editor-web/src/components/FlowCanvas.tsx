@@ -6,11 +6,13 @@ import {
   ReactFlowProvider,
   type Connection,
   type EdgeChange,
+  type EdgeMouseHandler,
   type NodeChange,
   type NodeMouseHandler,
   type NodeTypes,
 } from '@xyflow/react';
 import { useEffect } from 'react';
+import { useAppTheme } from '../context/AppThemeContext';
 import type { FlowEdge, FlowNode } from '../flow/types';
 import { FlowShapeNode } from './FlowShapeNode';
 
@@ -23,6 +25,7 @@ type FlowCanvasProps = {
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
   onConnect: (connection: Connection) => void;
   onNodeDoubleClick?: NodeMouseHandler<FlowNode>;
+  onEdgeDoubleClick?: EdgeMouseHandler<FlowEdge>;
   keyboardShortcutsEnabled?: boolean;
   canCopySelection?: boolean;
   canPasteSelection?: boolean;
@@ -81,12 +84,15 @@ export function FlowCanvas({
   onEdgesChange,
   onConnect,
   onNodeDoubleClick,
+  onEdgeDoubleClick,
   keyboardShortcutsEnabled = false,
   canCopySelection = false,
   canPasteSelection = false,
   onCopySelection,
   onPasteSelection,
 }: FlowCanvasProps) {
+  const { theme } = useAppTheme();
+
   return (
     <div className="flow-canvas-wrap">
       <ReactFlowProvider>
@@ -100,13 +106,14 @@ export function FlowCanvas({
           />
         ) : null}
         <ReactFlow
-          colorMode="dark"
+          colorMode={theme}
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onNodeDoubleClick={onNodeDoubleClick}
+          onEdgeDoubleClick={onEdgeDoubleClick}
           nodeTypes={nodeTypes}
           deleteKeyCode={['Backspace', 'Delete']}
           fitView
@@ -116,7 +123,11 @@ export function FlowCanvas({
           multiSelectionKeyCode="Shift"
           proOptions={{ hideAttribution: true }}
         >
-          <Background color="rgba(245, 248, 194, 0.07)" gap={16} size={1} />
+          <Background
+            color={theme === 'light' ? 'rgba(74, 93, 35, 0.1)' : 'rgba(245, 248, 194, 0.07)'}
+            gap={16}
+            size={1}
+          />
           <Controls showInteractive={false} />
           <MiniMap pannable zoomable className="flow-minimap" />
         </ReactFlow>
