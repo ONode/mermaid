@@ -1,5 +1,9 @@
-import { applyFlowEdgeStyle } from './edgeStyle';
+import { parseAndPushEdgeLine } from './parseEdgeLine';
+import { parseSubgraphHeader, uniqueSubgraphId } from './parseSubgraphHeader';
+import { unquoteMermaidString } from './mermaidText';
+import { fitSubgraphBounds, placeChildNode, placeSubgraphNode } from './subgraphLayout';
 import type { FlowchartDirection, FlowEdge, FlowNode, FlowShape } from './types';
+import { isFlowSubgraphNode } from './types';
 
 export type ParseResult =
   | { ok: true; nodes: FlowNode[]; edges: FlowEdge[]; direction: FlowchartDirection }
@@ -10,10 +14,12 @@ const HEADER = /^\s*flowchart\s+(TD|LR|RL|TB|BT)\s*$/i;
 
 /** Full-line `%%` comments (not `%%{…}` directives). */
 const COMMENT_LINE = /^\s*%%(?!\{)/;
-/** Subgraph wrappers are ignored for canvas sync; inner nodes/edges are still parsed. */
-const SUBGRAPH_LINE = /^\s*subgraph\b/i;
-const DIRECTION_LINE = /^\s*direction\s+(TD|BT|LR|RL)\s*$/i;
+const SUBGRAPH_OPEN = /^\s*subgraph\s+(.+)$/i;
+const DIRECTION_LINE = /^\s*direction\s+(TD|BT|LR|RL|TB)\s*$/i;
 const END_LINE = /^\s*end\s*$/i;
+/** `classDef` / `class` styling (ignored for canvas; preview still uses full Mermaid). */
+const CLASS_DEF_LINE = /^\s*classDef\b/i;
+const CLASS_LINE = /^\s*class\s+/i;
 
 /** Cylinder: id[(label)] */
 const NODE_CYLINDER = /^\s*(\w+)\[\(([^)\n]*)\)\]\s*$/;
@@ -32,84 +38,82 @@ const NODE_CIRCLE_QUOTED = /^\s*(\w+)\(\(\s*"((?:\\.|[^"\\])*)"\s*\)\)\s*$/;
 const NODE_DIA = /^\s*(\w+)\{([^}\n]*)\}\s*$/;
 /** Quoted diamond */
 const NODE_DIA_QUOTED = /^\s*(\w+)\{"((?:\\.|[^"\\])*)"\}\s*$/;
-/** Edge with label */
-const EDGE_LAB = /^\s*(\w+)\s*-->\s*\|([^|\n]+)\|\s*(\w+)\s*$/;
-/** Plain edge */
-const EDGE = /^\s*(\w+)\s*-->\s*(\w+)\s*$/;
-/** `src -->` + remainder is an inline node (same shapes as standalone lines). */
-const EDGE_TO_SUFFIX = /^\s*(\w+)\s*-->\s*(.+)$/;
-const EDGE_LAB_TO_SUFFIX = /^\s*(\w+)\s*-->\s*\|([^|\n]+)\|\s*(.+)$/;
 /** style id fill:... (single-line; supports rgba with spaces) */
 const STYLE_FILL = /^\s*style\s+(\w+)\s+fill:\s*(.+)$/;
 
-function unquote(s: string): string {
-  return s.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+function countChildren(nodes: Map<string, FlowNode>, parentId: string | undefined): number {
+  return [...nodes.values()].filter((n) => n.parentId === parentId).length;
 }
 
-/** Inline node after `-->` (trimmed); patterns mirror NODE_* without leading line whitespace. */
-function parseInlineNodeDef(s: string): { id: string; label: string; shape: FlowShape } | null {
-  const t = s.trim();
-  let m = /^(\w+)\[\(\s*"((?:\\.|[^"\\])*)"\s*\)\]\s*$/.exec(t);
-  if (m) {
-    return { id: m[1], label: unquote(m[2]), shape: 'cylinder' };
-  }
-  m = /^(\w+)\[\(([^)\n]*)\)\]\s*$/.exec(t);
-  if (m) {
-    return { id: m[1], label: m[2], shape: 'cylinder' };
-  }
-  m = /^(\w+)\["((?:\\.|[^"\\])*)"\]\s*$/.exec(t);
-  if (m) {
-    return { id: m[1], label: unquote(m[2]), shape: 'rect' };
-  }
-  m = /^(\w+)\[([^\]\n]+)\]\s*$/.exec(t);
-  if (m) {
-    return { id: m[1], label: m[2], shape: 'rect' };
-  }
-  m = /^(\w+)\(\[\s*"((?:\\.|[^"\\])*)"\s*\]\)\s*$/.exec(t);
-  if (m) {
-    return { id: m[1], label: unquote(m[2]), shape: 'stadium' };
-  }
-  m = /^(\w+)\(\[([^\]\n]+)\]\)\s*$/.exec(t);
-  if (m) {
-    return { id: m[1], label: m[2], shape: 'stadium' };
-  }
-  m = /^(\w+)\(\(\s*"((?:\\.|[^"\\])*)"\s*\)\)\s*$/.exec(t);
-  if (m) {
-    return { id: m[1], label: unquote(m[2]), shape: 'circle' };
-  }
-  m = /^(\w+)\(\(([^)\n]*)\)\)\s*$/.exec(t);
-  if (m) {
-    return { id: m[1], label: m[2], shape: 'circle' };
-  }
-  m = /^(\w+)\{"((?:\\.|[^"\\])*)"\}\s*$/.exec(t);
-  if (m) {
-    return { id: m[1], label: unquote(m[2]), shape: 'diamond' };
-  }
-  m = /^(\w+)\{([^}\n]*)\}\s*$/.exec(t);
-  if (m) {
-    return { id: m[1], label: m[2], shape: 'diamond' };
-  }
-  return null;
+function currentParentId(stack: string[]): string | undefined {
+  return stack.length > 0 ? stack[stack.length - 1] : undefined;
 }
 
-function upsertNode(nodes: Map<string, FlowNode>, id: string, label: string, shape: FlowShape): void {
+function upsertSubgraphNode(
+  nodes: Map<string, FlowNode>,
+  id: string,
+  title: string,
+  parentId?: string
+): void {
   const existing = nodes.get(id);
-  const data: FlowNode['data'] = { label, shape };
-  const prevBg = existing?.data.backgroundColor;
-  if (typeof prevBg === 'string' && prevBg.length > 0) {
-    data.backgroundColor = prevBg;
+  const siblingIndex = countChildren(nodes, parentId);
+  nodes.set(id, {
+    id,
+    type: 'subgraph',
+    position:
+      existing?.position ??
+      (parentId ? placeChildNode(siblingIndex) : placeSubgraphNode(nodes.size)),
+    parentId,
+    zIndex: -1,
+    data: {
+      title,
+      ...(existing && isFlowSubgraphNode(existing) && existing.data.direction
+        ? { direction: existing.data.direction }
+        : {}),
+    },
+    style: existing?.style ?? { width: 280, height: 200 },
+  });
+}
+
+function ensureStubNode(
+  nodes: Map<string, FlowNode>,
+  id: string,
+  parentId?: string
+): void {
+  if (nodes.has(id)) {
+    return;
   }
+  upsertNode(nodes, id, id, 'rect', parentId);
+}
+
+function upsertNode(
+  nodes: Map<string, FlowNode>,
+  id: string,
+  label: string,
+  shape: FlowShape,
+  parentId?: string
+): void {
+  const existing = nodes.get(id);
+  const flowData: { label: string; shape: FlowShape; backgroundColor?: string } = { label, shape };
+  if (existing && existing.type === 'flow' && typeof existing.data.backgroundColor === 'string') {
+    flowData.backgroundColor = existing.data.backgroundColor;
+  }
+  const siblingIndex = countChildren(nodes, parentId);
   nodes.set(id, {
     id,
     type: 'flow',
-    position: existing?.position ?? placeNode(id, nodes.size),
-    data,
+    position:
+      existing?.position ??
+      (parentId ? placeChildNode(siblingIndex) : placeNode(id, nodes.size)),
+    parentId,
+    extent: parentId ? 'parent' : undefined,
+    data: flowData,
   });
 }
 
 function applyStyleFill(nodes: Map<string, FlowNode>, id: string, fill: string): void {
   const node = nodes.get(id);
-  if (!node) {
+  if (!node || node.type !== 'flow') {
     return;
   }
   nodes.set(id, {
@@ -120,7 +124,7 @@ function applyStyleFill(nodes: Map<string, FlowNode>, id: string, fill: string):
 
 /**
  * Minimal parser: `flowchart` + direction (`TD`, `LR`, …), node lines `id[label]` / `id([...])` / `id((...))` / `id{"..."}` / `id{label}`,
- * edges `a --> b`, `a -->|lbl| b`, and `a --> id["label"]` (inline target node, same shapes as standalone), `style id fill:color`. Skips `%%` comments, `subgraph` / `direction` / `end` lines (no grouping on canvas).
+ * edges, subgraph blocks, `style id fill:color`. Skips `%%` comments and `classDef` / `class` lines.
  * Unknown lines are errors.
  */
 export function parseFlowchartMinimal(text: string): ParseResult {
@@ -130,6 +134,7 @@ export function parseFlowchartMinimal(text: string): ParseResult {
   const unknown: string[] = [];
   let direction: FlowchartDirection = 'TD';
   let sawFlowchartHeader = false;
+  const subgraphStack: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? '';
@@ -141,9 +146,43 @@ export function parseFlowchartMinimal(text: string): ParseResult {
     if (COMMENT_LINE.test(trimmed)) {
       continue;
     }
-    if (SUBGRAPH_LINE.test(trimmed) || DIRECTION_LINE.test(trimmed) || END_LINE.test(trimmed)) {
+    if (CLASS_DEF_LINE.test(trimmed) || CLASS_LINE.test(trimmed)) {
       continue;
     }
+
+    if (END_LINE.test(trimmed)) {
+      if (subgraphStack.length > 0) {
+        subgraphStack.pop();
+      }
+      continue;
+    }
+
+    const subgraphOpen = SUBGRAPH_OPEN.exec(trimmed);
+    if (subgraphOpen) {
+      const parsed = parseSubgraphHeader(subgraphOpen[1]);
+      const id = uniqueSubgraphId(parsed.id, new Set(nodes.keys()));
+      upsertSubgraphNode(nodes, id, parsed.title, currentParentId(subgraphStack));
+      subgraphStack.push(id);
+      continue;
+    }
+
+    const directionInSubgraph = DIRECTION_LINE.exec(trimmed);
+    if (directionInSubgraph && subgraphStack.length > 0) {
+      const sgId = subgraphStack[subgraphStack.length - 1];
+      const sg = nodes.get(sgId);
+      if (sg && isFlowSubgraphNode(sg)) {
+        nodes.set(sgId, {
+          ...sg,
+          data: {
+            ...sg.data,
+            direction: directionInSubgraph[1].toUpperCase() as FlowchartDirection,
+          },
+        });
+      }
+      continue;
+    }
+
+    const parentId = currentParentId(subgraphStack);
 
     const headerMatch = HEADER.exec(trimmed);
     if (headerMatch) {
@@ -157,8 +196,8 @@ export function parseFlowchartMinimal(text: string): ParseResult {
     let m = NODE_CYLINDER_QUOTED.exec(trimmed);
     if (m) {
       const id = m[1];
-      const label = unquote(m[2]);
-      upsertNode(nodes, id, label, 'cylinder');
+      const label = unquoteMermaidString(m[2]);
+      upsertNode(nodes, id, label, 'cylinder', parentId);
       continue;
     }
 
@@ -166,15 +205,15 @@ export function parseFlowchartMinimal(text: string): ParseResult {
     if (m) {
       const id = m[1];
       const label = m[2];
-      upsertNode(nodes, id, label, 'cylinder');
+      upsertNode(nodes, id, label, 'cylinder', parentId);
       continue;
     }
 
     m = NODE_RECT_QUOTED.exec(trimmed);
     if (m) {
       const id = m[1];
-      const label = unquote(m[2]);
-      upsertNode(nodes, id, label, 'rect');
+      const label = unquoteMermaidString(m[2]);
+      upsertNode(nodes, id, label, 'rect', parentId);
       continue;
     }
 
@@ -182,15 +221,15 @@ export function parseFlowchartMinimal(text: string): ParseResult {
     if (m) {
       const id = m[1];
       const label = m[2];
-      upsertNode(nodes, id, label, 'rect');
+      upsertNode(nodes, id, label, 'rect', parentId);
       continue;
     }
 
     m = NODE_STADIUM_QUOTED.exec(trimmed);
     if (m) {
       const id = m[1];
-      const label = unquote(m[2]);
-      upsertNode(nodes, id, label, 'stadium');
+      const label = unquoteMermaidString(m[2]);
+      upsertNode(nodes, id, label, 'stadium', parentId);
       continue;
     }
 
@@ -198,15 +237,15 @@ export function parseFlowchartMinimal(text: string): ParseResult {
     if (m) {
       const id = m[1];
       const label = m[2];
-      upsertNode(nodes, id, label, 'stadium');
+      upsertNode(nodes, id, label, 'stadium', parentId);
       continue;
     }
 
     m = NODE_CIRCLE_QUOTED.exec(trimmed);
     if (m) {
       const id = m[1];
-      const label = unquote(m[2]);
-      upsertNode(nodes, id, label, 'circle');
+      const label = unquoteMermaidString(m[2]);
+      upsertNode(nodes, id, label, 'circle', parentId);
       continue;
     }
 
@@ -214,15 +253,15 @@ export function parseFlowchartMinimal(text: string): ParseResult {
     if (m) {
       const id = m[1];
       const label = m[2];
-      upsertNode(nodes, id, label, 'circle');
+      upsertNode(nodes, id, label, 'circle', parentId);
       continue;
     }
 
     m = NODE_DIA_QUOTED.exec(trimmed);
     if (m) {
       const id = m[1];
-      const label = unquote(m[2]);
-      upsertNode(nodes, id, label, 'diamond');
+      const label = unquoteMermaidString(m[2]);
+      upsertNode(nodes, id, label, 'diamond', parentId);
       continue;
     }
 
@@ -230,57 +269,11 @@ export function parseFlowchartMinimal(text: string): ParseResult {
     if (m) {
       const id = m[1];
       const label = m[2];
-      upsertNode(nodes, id, label, 'diamond');
+      upsertNode(nodes, id, label, 'diamond', parentId);
       continue;
     }
 
-    m = EDGE_LAB_TO_SUFFIX.exec(trimmed);
-    if (m) {
-      const inline = parseInlineNodeDef(m[3]);
-      if (inline) {
-        upsertNode(nodes, inline.id, inline.label, inline.shape);
-        const id = `e-${m[1]}-${inline.id}-${edges.length}`;
-        edges.push(
-          applyFlowEdgeStyle({
-            id,
-            source: m[1],
-            target: inline.id,
-            label: m[2].trim(),
-          })
-        );
-        continue;
-      }
-    }
-
-    m = EDGE_TO_SUFFIX.exec(trimmed);
-    if (m) {
-      const inline = parseInlineNodeDef(m[2]);
-      if (inline) {
-        upsertNode(nodes, inline.id, inline.label, inline.shape);
-        const id = `e-${m[1]}-${inline.id}-${edges.length}`;
-        edges.push(applyFlowEdgeStyle({ id, source: m[1], target: inline.id }));
-        continue;
-      }
-    }
-
-    m = EDGE_LAB.exec(trimmed);
-    if (m) {
-      const id = `e-${m[1]}-${m[3]}-${edges.length}`;
-      edges.push(
-        applyFlowEdgeStyle({
-          id,
-          source: m[1],
-          target: m[3],
-          label: m[2].trim(),
-        })
-      );
-      continue;
-    }
-
-    m = EDGE.exec(trimmed);
-    if (m) {
-      const id = `e-${m[1]}-${m[2]}-${edges.length}`;
-      edges.push(applyFlowEdgeStyle({ id, source: m[1], target: m[2] }));
+    if (parseAndPushEdgeLine(trimmed, nodes, edges, upsertNode, ensureStubNode, parentId)) {
       continue;
     }
 
@@ -315,7 +308,8 @@ export function parseFlowchartMinimal(text: string): ParseResult {
     }
   }
 
-  return { ok: true, nodes: [...nodes.values()], edges, direction };
+  const laidOut = fitSubgraphBounds([...nodes.values()]);
+  return { ok: true, nodes: laidOut, edges, direction };
 }
 
 function placeNode(id: string, index: number): { x: number; y: number } {

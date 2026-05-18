@@ -1,4 +1,6 @@
-import type { FlowchartDirection, FlowEdge, FlowNode } from './types';
+import { resolveFlowEdgeData } from './edgeStyle';
+import type { FlowchartDirection, FlowEdge, FlowNode, FlowShapeNode } from './types';
+import { isFlowShapeNode, isFlowSubgraphNode } from './types';
 
 function escapeQuotedLabel(label: string): string {
   return label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -40,38 +42,84 @@ function formatCylinderLabel(label: string): string {
   return label;
 }
 
-function formatNodeLine(node: FlowNode): string {
+function formatSubgraphTitle(title: string): string {
+  if (/[\n[\]"<>()]|^\s|\s$/.test(title)) {
+    return `"${escapeQuotedLabel(title)}"`;
+  }
+  return title;
+}
+
+function formatShapeNodeLine(node: FlowShapeNode, indent: string): string {
   const { label, shape } = node.data;
   if (shape === 'diamond') {
     const inner = formatDiamondLabel(label);
-    return `    ${node.id}{${inner}}`;
+    return `${indent}${node.id}{${inner}}`;
   }
   if (shape === 'circle') {
     const inner = formatCircleLabel(label);
-    return `    ${node.id}((${inner}))`;
+    return `${indent}${node.id}((${inner}))`;
   }
   if (shape === 'stadium') {
     const inner = formatStadiumLabel(label);
-    return `    ${node.id}([${inner}])`;
+    return `${indent}${node.id}([${inner}])`;
   }
   if (shape === 'cylinder') {
     const inner = formatCylinderLabel(label);
-    return `    ${node.id}[(${inner})]`;
+    return `${indent}${node.id}[(${inner})]`;
   }
   const inner = formatRectLabel(label);
-  return `    ${node.id}[${inner}]`;
+  return `${indent}${node.id}[${inner}]`;
+}
+
+function serializeNodeTree(nodes: FlowNode[], parentId: string | undefined, indent: string): string[] {
+  const children = nodes
+    .filter((n) => n.parentId === parentId)
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  const lines: string[] = [];
+  for (const node of children) {
+    if (isFlowSubgraphNode(node)) {
+      const titlePart =
+        node.id === node.data.title
+          ? `subgraph ${node.id}`
+          : `subgraph ${node.id} [${formatSubgraphTitle(node.data.title)}]`;
+      lines.push(`${indent}${titlePart}`);
+      if (node.data.direction) {
+        lines.push(`${indent}    direction ${node.data.direction}`);
+      }
+      lines.push(...serializeNodeTree(nodes, node.id, `${indent}    `));
+      lines.push(`${indent}end`);
+    } else if (isFlowShapeNode(node)) {
+      lines.push(formatShapeNodeLine(node, indent));
+    }
+  }
+  return lines;
+}
+
+function mermaidEdgeArrow(edge: FlowEdge): string {
+  const { lineStyle, strokeWeight } = resolveFlowEdgeData(edge);
+  if (lineStyle === 'dashed') {
+    return '-.->';
+  }
+  if (strokeWeight === 'thick') {
+    return '==>';
+  }
+  return '-->';
+}
+
+function formatEdgeLabel(label: string): string {
+  return /[\n|<>()"$—]/.test(label) ? `"${escapeQuotedLabel(label)}"` : label;
 }
 
 function formatEdgeLine(edge: FlowEdge): string {
+  const arrow = mermaidEdgeArrow(edge);
   const label =
     typeof edge.label === 'string' && edge.label.length > 0 ? edge.label : undefined;
   if (label !== undefined) {
-    const safe = /[\n|<>()"]/.test(label)
-      ? `"${escapeQuotedLabel(label)}"`
-      : label;
-    return `    ${edge.source} -->|${safe}| ${edge.target}`;
+    const safe = formatEdgeLabel(label);
+    return `    ${edge.source} ${arrow}|${safe}| ${edge.target}`;
   }
-  return `    ${edge.source} --> ${edge.target}`;
+  return `    ${edge.source} ${arrow} ${edge.target}`;
 }
 
 /**
@@ -82,7 +130,6 @@ export function serializeFlowchart(
   edges: FlowEdge[],
   direction: FlowchartDirection = 'TD'
 ): string {
-  const sortedNodes = [...nodes].sort((a, b) => a.id.localeCompare(b.id));
   const sortedEdges = [...edges].sort((a, b) => {
     const s = a.source.localeCompare(b.source);
     if (s !== 0) {
@@ -95,16 +142,18 @@ export function serializeFlowchart(
     return a.id.localeCompare(b.id);
   });
 
-  const styleLines = sortedNodes
+  const styleLines = nodes
+    .filter(isFlowShapeNode)
     .filter((n) => {
       const c = n.data.backgroundColor;
       return typeof c === 'string' && c.length > 0;
     })
+    .sort((a, b) => a.id.localeCompare(b.id))
     .map((n) => `    style ${n.id} fill:${n.data.backgroundColor}`);
 
   const lines = [
     `flowchart ${direction}`,
-    ...sortedNodes.map(formatNodeLine),
+    ...serializeNodeTree(nodes, undefined, '    '),
     ...sortedEdges.map(formatEdgeLine),
     ...styleLines,
   ];

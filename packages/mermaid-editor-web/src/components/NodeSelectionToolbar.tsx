@@ -2,6 +2,8 @@ import type { ResolvedFlowEdgeData } from '../flow/edgeStyle';
 import { FLOW_SHAPE_OPTIONS, PRESET_NODE_FILLS } from '../flow/presets';
 import type { FlowEdgeArrowMode, FlowEdgeLineStyle, FlowEdgePathType, FlowShape } from '../flow/types';
 import { EdgeSelectionToolbar } from './EdgeSelectionToolbar';
+import { SelectionToolbarLayoutToggle } from './SelectionToolbarLayoutToggle';
+import type { SelectionToolbarLayout } from '../selectionToolbarLayout';
 
 export type FlowRenameTarget = {
   kind: 'node' | 'edge';
@@ -22,6 +24,8 @@ type NodeSelectionToolbarProps = {
   onPickPathType: (pathType: FlowEdgePathType) => void;
   onPickLineStyle: (lineStyle: FlowEdgeLineStyle) => void;
   onPickEdgeColor: (color: string | null) => void;
+  layout: SelectionToolbarLayout;
+  onToggleLayout: () => void;
 };
 
 export function NodeSelectionToolbar({
@@ -37,13 +41,19 @@ export function NodeSelectionToolbar({
   onPickPathType,
   onPickLineStyle,
   onPickEdgeColor,
+  layout,
+  onToggleLayout,
 }: NodeSelectionToolbarProps) {
   if (selectedCount <= 0) {
     return null;
   }
 
   return (
-    <div className="flow-selection-toolbar" role="toolbar" aria-label="Canvas selection">
+    <div
+      className={`flow-selection-toolbar flow-selection-toolbar--${layout}`}
+      role="toolbar"
+      aria-label="Canvas selection"
+    >
       <span className="flow-selection-toolbar__meta">
         {selectedCount} selected
       </span>
@@ -64,11 +74,14 @@ export function NodeSelectionToolbar({
       ) : null}
       {selectedEdgeCount > 0 ? (
         <EdgeSelectionToolbar
+          layout={layout}
           edgeStyle={singleEdgeStyle}
           onPickArrowMode={onPickArrowMode}
           onPickPathType={onPickPathType}
           onPickLineStyle={onPickLineStyle}
           onPickEdgeColor={onPickEdgeColor}
+          showLayoutToggle={selectedNodeCount === 0}
+          onToggleLayout={onToggleLayout}
         />
       ) : null}
       {selectedNodeCount > 0 ? (
@@ -107,6 +120,9 @@ export function NodeSelectionToolbar({
             </div>
           </div>
         </>
+      ) : null}
+      {selectedNodeCount > 0 ? (
+        <SelectionToolbarLayoutToggle layout={layout} onToggle={onToggleLayout} />
       ) : null}
     </div>
   );

@@ -1,9 +1,17 @@
 import { MarkerType, type EdgeMarker } from '@xyflow/react';
 import type { CSSProperties } from 'react';
-import type { FlowEdge, FlowEdgeArrowMode, FlowEdgeData, FlowEdgeLineStyle, FlowEdgePathType } from './types';
+import type {
+  FlowEdge,
+  FlowEdgeArrowMode,
+  FlowEdgeData,
+  FlowEdgeLineStyle,
+  FlowEdgePathType,
+  FlowEdgeStrokeWeight,
+} from './types';
 
 const DEFAULT_PATH_TYPE: FlowEdgePathType = 'smoothstep';
 const DEFAULT_LINE_STYLE: FlowEdgeLineStyle = 'solid';
+const DEFAULT_STROKE_WEIGHT: FlowEdgeStrokeWeight = 'normal';
 const DEFAULT_ARROW_END = true;
 const DEFAULT_ARROW_START = false;
 
@@ -16,6 +24,7 @@ const ARROW_MARKER: EdgeMarker = {
 export type ResolvedFlowEdgeData = {
   pathType: FlowEdgePathType;
   lineStyle: FlowEdgeLineStyle;
+  strokeWeight: FlowEdgeStrokeWeight;
   strokeColor: string | null;
   arrowStart: boolean;
   arrowEnd: boolean;
@@ -52,6 +61,7 @@ export function resolveFlowEdgeData(edge: FlowEdge): ResolvedFlowEdgeData {
   return {
     pathType: d.pathType ?? DEFAULT_PATH_TYPE,
     lineStyle: d.lineStyle ?? DEFAULT_LINE_STYLE,
+    strokeWeight: d.strokeWeight ?? DEFAULT_STROKE_WEIGHT,
     strokeColor: typeof d.strokeColor === 'string' && d.strokeColor.length > 0 ? d.strokeColor : null,
     arrowStart: d.arrowStart ?? DEFAULT_ARROW_START,
     arrowEnd: d.arrowEnd ?? DEFAULT_ARROW_END,
@@ -66,6 +76,9 @@ function edgeStyleFromData(data: ResolvedFlowEdgeData): CSSProperties | undefine
   if (data.lineStyle === 'dashed') {
     style.strokeDasharray = '6 4';
   }
+  if (data.strokeWeight === 'thick') {
+    style.strokeWidth = 2.5;
+  }
   return Object.keys(style).length > 0 ? style : undefined;
 }
 
@@ -76,6 +89,9 @@ function compactEdgeData(data: ResolvedFlowEdgeData): FlowEdgeData {
   }
   if (data.lineStyle !== DEFAULT_LINE_STYLE) {
     next.lineStyle = data.lineStyle;
+  }
+  if (data.strokeWeight !== DEFAULT_STROKE_WEIGHT) {
+    next.strokeWeight = data.strokeWeight;
   }
   if (data.strokeColor) {
     next.strokeColor = data.strokeColor;
@@ -114,6 +130,7 @@ export function patchFlowEdgeData(edge: FlowEdge, patch: Partial<FlowEdgeData>):
   const merged: ResolvedFlowEdgeData = {
     pathType: patch.pathType ?? current.pathType,
     lineStyle: patch.lineStyle ?? current.lineStyle,
+    strokeWeight: patch.strokeWeight ?? current.strokeWeight,
     strokeColor:
       patch.strokeColor === null
         ? null

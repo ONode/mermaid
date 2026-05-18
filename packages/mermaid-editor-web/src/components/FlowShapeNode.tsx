@@ -1,8 +1,9 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { CSSProperties } from 'react';
-import type { FlowNode } from '../flow/types';
+import type { FlowShapeNode } from '../flow/types';
+import { FlowNodeLabel } from './FlowNodeLabel';
 
-function innerSurfaceStyle(data: FlowNode['data']): CSSProperties | undefined {
+function innerSurfaceStyle(data: FlowShapeNode['data']): CSSProperties | undefined {
   const c = data.backgroundColor;
   if (typeof c === 'string' && c.length > 0) {
     return {
@@ -13,7 +14,7 @@ function innerSurfaceStyle(data: FlowNode['data']): CSSProperties | undefined {
   return undefined;
 }
 
-export function FlowShapeNode({ data, selected }: NodeProps<FlowNode>) {
+export function FlowShapeNode({ data, selected }: NodeProps<FlowShapeNode>) {
   const surface = innerSurfaceStyle(data);
 
   if (data.shape === 'diamond') {
@@ -22,7 +23,7 @@ export function FlowShapeNode({ data, selected }: NodeProps<FlowNode>) {
         <Handle className="flow-handle" position={Position.Top} type="target" />
         <Handle className="flow-handle" position={Position.Left} type="target" id="lt" />
         <div className="flow-node__diamond-inner" style={surface}>
-          <span className="flow-node__label">{data.label}</span>
+          <FlowNodeLabel label={data.label} />
         </div>
         <Handle className="flow-handle" position={Position.Right} type="source" />
         <Handle className="flow-handle" position={Position.Bottom} type="source" id="sb" />
@@ -35,7 +36,7 @@ export function FlowShapeNode({ data, selected }: NodeProps<FlowNode>) {
       <div className={`flow-node flow-node--circle ${selected ? 'flow-node--selected' : ''}`}>
         <Handle className="flow-handle" position={Position.Top} type="target" />
         <div className="flow-node__circle-inner" style={surface}>
-          <span className="flow-node__label">{data.label}</span>
+          <FlowNodeLabel label={data.label} />
         </div>
         <Handle className="flow-handle" position={Position.Bottom} type="source" />
       </div>
@@ -47,7 +48,7 @@ export function FlowShapeNode({ data, selected }: NodeProps<FlowNode>) {
       <div className={`flow-node flow-node--stadium ${selected ? 'flow-node--selected' : ''}`}>
         <Handle className="flow-handle" position={Position.Top} type="target" />
         <div className="flow-node__stadium-inner" style={surface}>
-          <span className="flow-node__label">{data.label}</span>
+          <FlowNodeLabel label={data.label} />
         </div>
         <Handle className="flow-handle" position={Position.Bottom} type="source" />
       </div>
@@ -61,7 +62,7 @@ export function FlowShapeNode({ data, selected }: NodeProps<FlowNode>) {
         <div className="flow-node__cylinder">
           <div className="flow-node__cylinder-cap" style={surface} aria-hidden="true" />
           <div className="flow-node__cylinder-body" style={surface}>
-            <span className="flow-node__label">{data.label}</span>
+            <FlowNodeLabel label={data.label} />
           </div>
           <div className="flow-node__cylinder-base" style={surface} aria-hidden="true" />
         </div>
@@ -74,7 +75,7 @@ export function FlowShapeNode({ data, selected }: NodeProps<FlowNode>) {
     <div className={`flow-node flow-node--rect ${selected ? 'flow-node--selected' : ''}`}>
       <Handle className="flow-handle" position={Position.Top} type="target" />
       <div className="flow-node__rect-inner" style={surface}>
-        <span className="flow-node__label">{data.label}</span>
+        <FlowNodeLabel label={data.label} />
       </div>
       <Handle className="flow-handle" position={Position.Bottom} type="source" />
     </div>

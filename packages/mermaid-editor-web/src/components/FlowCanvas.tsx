@@ -15,8 +15,9 @@ import { useEffect } from 'react';
 import { useAppTheme } from '../context/AppThemeContext';
 import type { FlowEdge, FlowNode } from '../flow/types';
 import { FlowShapeNode } from './FlowShapeNode';
+import { FlowSubgraphNode } from './FlowSubgraphNode';
 
-const nodeTypes = { flow: FlowShapeNode } satisfies NodeTypes;
+const nodeTypes = { flow: FlowShapeNode, subgraph: FlowSubgraphNode } satisfies NodeTypes;
 
 type FlowCanvasProps = {
   nodes: FlowNode[];

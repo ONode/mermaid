@@ -1,0 +1,96 @@
+flowchart TD
+	%% Supply
+	PLATFORM(["🏗️ Agent Platforms<br>Bankr · Virtuals · launchpads"])
+	AGENT(["🤖 Agents<br>activity · revenue · risk"])
+
+	%% Gating decisions
+	D1{"Settled?<br><i>verifiable on L1</i>"}
+	D2{"Activated?<br><i>wallet · mandate · limits</i>"}
+	D3{"Underwritable?<br><i>proof · risk score · forward revenue</i>"}
+
+	%% Routing decisions
+	D_EXP{"What kind<br>of exposure?"}
+	D_SIDE{"Make markets<br>or take exposure?"}
+	D_USE{"Trade cashflow<br>or finance it?"}
+
+	%% Products
+	TOKEN["Agent Token DEX<br><i>spot · HyperCLAMM</i>"]
+	PERPS["Perp DEX<br><i>agent / index / revenue perps</i>"]
+	REVMKT["Agent Revenue Market<br><i>cashflow · basis</i>"]
+	MARI["MARI Index DEX<br><i>Core · Balanced · Trading · Broad</i>"]
+	CLAMM_V["CLAMM Spot Vaults<br><i>agent-managed ranges</i>"]
+	CLOB_V["CLOB Perp Vaults<br><i>agent-managed quoting</i>"]
+	VAULT["Yield Vaults<br><i>fee · funding · hedged</i>"]
+	STRUCT["Structured Products<br><i>tranches · notes</i>"]
+	REVFIN["Agent Revenue Finance<br><i>revenue-backed financing</i>"]
+	WHITE["White-label Products<br><i>ecosystem-branded SKUs</i>"]
+
+	%% Capital pools
+	RETAIL[("💵 Retail traders")]
+	QUANTS[("📊 Pro · quants")]
+	LPMM[("💧 LPs · market makers")]
+	INVEST[("🏦 Investors · underwriters")]
+	INST[("🏛️ Institutions")]
+
+	%% Supply chain through gates
+	PLATFORM -->|"bring agents"| AGENT
+	AGENT -->|"raw activity"| D1
+	D1 -->|"yes"| D2
+	D1 -.->|"no — just noise"| AGENT
+	D2 -->|"yes"| D3
+	D3 -->|"yes"| D_EXP
+
+	%% Exposure router
+	D_EXP -->|"single agent · spot"| TOKEN
+	D_EXP -->|"directional · leveraged"| PERPS
+	D_EXP -->|"cashflow exposure"| REVMKT
+	D_EXP -->|"diversified basket"| MARI
+
+	%% Make-or-take router
+	TOKEN --> D_SIDE
+	PERPS --> D_SIDE
+	D_SIDE -->|"make spot"| CLAMM_V
+	D_SIDE -->|"make perp"| CLOB_V
+
+	%% Trade-or-finance router
+	REVMKT --> D_USE
+	D_USE -->|"trade yield"| VAULT
+	D_USE -->|"finance the agent"| REVFIN
+
+	%% Product packaging chain
+	CLAMM_V -->|"fee capture"| VAULT
+	CLOB_V -->|"funding capture"| VAULT
+	MARI -->|"index wrapping"| STRUCT
+	VAULT -->|"tranching · hedging"| STRUCT
+
+	%% White-label branch (dotted = optional brand path)
+	MARI -.->|"ecosystem brand"| WHITE
+	STRUCT -.->|"ecosystem brand"| WHITE
+	REVFIN -.->|"ecosystem brand"| WHITE
+
+	%% Capital $ flows (thick = real money)
+	RETAIL ==>|"$ spot buy"| TOKEN
+	RETAIL ==>|"$ long / short"| PERPS
+	RETAIL ==>|"$ basket buy"| MARI
+	RETAIL ==>|"$ yield deposit"| VAULT
+	QUANTS ==>|"$ basis · vol"| PERPS
+	QUANTS ==>|"$ cashflow arb"| REVMKT
+	QUANTS ==>|"$ rotation"| MARI
+	LPMM ==>|"$ spot liquidity"| CLAMM_V
+	LPMM ==>|"$ perp liquidity"| CLOB_V
+	LPMM ==>|"$ basis MM"| REVMKT
+	INVEST ==>|"$ underwrite"| REVFIN
+	INVEST ==>|"$ tranche capital"| STRUCT
+	INST ==>|"$ benchmark allocation"| MARI
+	INST ==>|"$ structured allocation"| STRUCT
+	INST ==>|"$ private credit"| REVFIN
+	INST ==>|"$ branded allocation"| WHITE
+
+	classDef supply fill:#fff3e0,stroke:#e65100,color:#000,stroke-width:2px
+	classDef decision fill:#fffde7,stroke:#f9a825,color:#000,stroke-width:2px
+	classDef product fill:#e3f2fd,stroke:#0d47a1,color:#000
+	classDef capital fill:#f3e5f5,stroke:#6a1b9a,color:#000,stroke-width:2px
+	class PLATFORM,AGENT supply
+	class D1,D2,D3,D_EXP,D_SIDE,D_USE decision
+	class TOKEN,PERPS,REVMKT,MARI,CLAMM_V,CLOB_V,VAULT,STRUCT,REVFIN,WHITE product
+	class RETAIL,QUANTS,LPMM,INVEST,INST capital

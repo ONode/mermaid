@@ -6,27 +6,38 @@ import {
   FLOW_EDGE_PATH_OPTIONS,
   PRESET_EDGE_STROKES,
 } from '../flow/presets';
+import type { SelectionToolbarLayout } from '../selectionToolbarLayout';
 import type { FlowEdgeArrowMode, FlowEdgeLineStyle, FlowEdgePathType } from '../flow/types';
+import { SelectionToolbarLayoutToggle } from './SelectionToolbarLayoutToggle';
 
 type EdgeSelectionToolbarProps = {
+  layout: SelectionToolbarLayout;
   edgeStyle: ResolvedFlowEdgeData | null;
   onPickArrowMode: (mode: FlowEdgeArrowMode) => void;
   onPickPathType: (pathType: FlowEdgePathType) => void;
   onPickLineStyle: (lineStyle: FlowEdgeLineStyle) => void;
   onPickEdgeColor: (color: string | null) => void;
+  /** When true, render the dock toggle at the end of the edge controls (edge-only toolbar). */
+  showLayoutToggle?: boolean;
+  onToggleLayout?: () => void;
 };
 
 export function EdgeSelectionToolbar({
+  layout,
   edgeStyle,
   onPickArrowMode,
   onPickPathType,
   onPickLineStyle,
   onPickEdgeColor,
+  showLayoutToggle = false,
+  onToggleLayout,
 }: EdgeSelectionToolbarProps) {
   const arrowMode = edgeStyle ? arrowModeFromFlags(edgeStyle.arrowStart, edgeStyle.arrowEnd) : null;
 
   return (
-    <>
+    <div
+      className={`flow-selection-toolbar__edge-section flow-selection-toolbar__edge-section--${layout}`}
+    >
       <div className="flow-selection-toolbar__group" role="group" aria-label="Arrow direction">
         <span className="flow-selection-toolbar__label">Arrows</span>
         <div className="flow-selection-toolbar__edge-toggles">
@@ -109,6 +120,9 @@ export function EdgeSelectionToolbar({
           ))}
         </div>
       </div>
-    </>
+      {showLayoutToggle && onToggleLayout ? (
+        <SelectionToolbarLayoutToggle layout={layout} onToggle={onToggleLayout} />
+      ) : null}
+    </div>
   );
 }

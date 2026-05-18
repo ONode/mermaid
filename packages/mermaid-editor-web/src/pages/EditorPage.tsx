@@ -35,14 +35,25 @@ import type {
   FlowNode,
   FlowShape,
 } from '../flow/types';
+import { isFlowShapeNode, isFlowSubgraphNode, nodeDisplayLabel } from '../flow/types';
 
 function edgeLabelText(label: FlowEdge['label']): string {
   return typeof label === 'string' ? label : '';
 }
 
 function mergeNodePositions(prev: FlowNode[], next: FlowNode[]): FlowNode[] {
-  const pos = new Map(prev.map((n) => [n.id, n.position]));
-  return next.map((n) => ({ ...n, position: pos.get(n.id) ?? n.position }));
+  const prevById = new Map(prev.map((n) => [n.id, n]));
+  return next.map((n) => {
+    const old = prevById.get(n.id);
+    if (!old) {
+      return n;
+    }
+    const merged = { ...n, position: old.position };
+    if (isFlowSubgraphNode(n) && isFlowSubgraphNode(old) && old.style) {
+      merged.style = { ...n.style, width: old.style.width ?? n.style?.width, height: old.style.height ?? n.style?.height };
+    }
+    return merged;
+  });
 }
 
 const SAVE_DEBOUNCE_MS = 500;
@@ -76,14 +87,14 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
       return null;
     }
     const n = sel[0];
-    return { id: n.id, label: n.data.label };
+    return { id: n.id, label: nodeDisplayLabel(n) };
   }, [nodes]);
   const singleRenameTarget = useMemo((): FlowRenameTarget | null => {
     const selNodes = nodes.filter((n) => n.selected);
     const selEdges = edges.filter((e) => e.selected);
     if (selNodes.length === 1 && selEdges.length === 0) {
       const n = selNodes[0];
-      return { kind: 'node', id: n.id, label: n.data.label };
+      return { kind: 'node', id: n.id, label: nodeDisplayLabel(n) };
     }
     if (selEdges.length === 1 && selNodes.length === 0) {
       const e = selEdges[0];
@@ -235,6 +246,9 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
     if (!node) {
       return;
     }
+    if (!isFlowShapeNode(node)) {
+      return;
+    }
     copiedNodeRef.current = {
       ...node,
       data: { ...node.data },
@@ -244,7 +258,7 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
 
   const pasteCopiedNode = useCallback(() => {
     const source = copiedNodeRef.current;
-    if (!source) {
+    if (!source || !isFlowShapeNode(source)) {
       return;
     }
     const id = `N${Date.now()}`;
@@ -263,7 +277,7 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
     (fill: string | null) => {
       setNodes((ns) =>
         ns.map((n) => {
-          if (!n.selected) {
+          if (!n.selected || !isFlowShapeNode(n)) {
             return n;
           }
           if (fill === null) {
@@ -280,7 +294,9 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
 
   const applyShapeToSelection = useCallback(
     (shape: FlowShape) => {
-      setNodes((ns) => ns.map((n) => (n.selected ? { ...n, data: { ...n.data, shape } } : n)));
+      setNodes((ns) =>
+        ns.map((n) => (n.selected && isFlowShapeNode(n) ? { ...n, data: { ...n.data, shape } } : n))
+      );
     },
     [setNodes]
   );
@@ -333,7 +349,7 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
       }
       renameTargetIdRef.current = node.id;
       setRenameModalKind('node');
-      setRenameDraft(node.data.label);
+      setRenameDraft(nodeDisplayLabel(node));
       setRenameModalOpen(true);
     },
     [nodes, edges]
@@ -377,7 +393,18 @@ export function EditorPage({ chart, onBack, onSaveGraph, onOpenMermaidPreview }:
       );
     } else {
       setNodes((ns) =>
-        ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, label: renameDraft } } : n))
+        ns.map((n) => {
+          if (n.id !== id) {
+            return n;
+          }
+          if (isFlowSubgraphNode(n)) {
+            return { ...n, data: { ...n.data, title: renameDraft } };
+          }
+          if (isFlowShapeNode(n)) {
+            return { ...n, data: { ...n.data, label: renameDraft } };
+          }
+          return n;
+        })
       );
     }
     renameTargetIdRef.current = null;

@@ -1,0 +1,46 @@
+flowchart TD
+    %% Supply
+    PLATFORM(["🏗️ Agent Platforms<br>Virtuals · Bankr · Launchpads"]) --> AGENT(["🤖 Agents<br>on-chain activity · revenue · risk"])
+
+    %% Gating (SoSoValue checks)
+    AGENT --> D1{"Settled?<br>on-chain verifiable (Base/ValueChain)"}
+    D1 -->|"yes"| D2{"Activated?<br>liquidity · custody · listing"}
+    D2 -->|"yes"| D3{"Underwritable?<br>risk score · revenue proof (SSI filters)"}
+    D3 -->|"yes"| D_EXP{"Exposure?"}
+
+    %% Exposure Routing (SoSoValue products)
+    D_EXP -->|"single agent · spot"| TOKEN["SoDEX Spot<br>Agent Token CLOB"]
+    D_EXP -->|"directional · leveraged"| PERPS["SoDEX Perps<br>Agent / SSI Index / Revenue"]
+    D_EXP -->|"cashflow"| REVMKT["Revenue Markets<br>Funding + Basis (extensible)"]
+    D_EXP -->|"diversified basket"| MARI["SSI Indices (MARI equiv.)<br>AI Agent Basket · Core/Balanced/Broad"]
+
+    %% Make / Take & Trade / Finance
+    TOKEN & PERPS --> D_SIDE{"Make or Take?"}
+    D_SIDE -->|"make"| CLAMM_V["CLAMM/CLOB Vaults<br>PMM + LP on SoDEX"]
+    REVMKT --> D_USE{"Trade or Finance?"}
+    D_USE -->|"trade"| VAULT["Yield Vaults<br>SSI Stake + SoDEX APY"]
+    D_USE -->|"finance"| REVFIN["Revenue Finance<br>Future structured"]
+
+    %% Packaging
+    MARI -->|"index wrapping"| STRUCT["Structured Products"]
+    VAULT & CLAMM_V --> STRUCT
+
+    %% Capital Flows (thick = real money)
+    RETAIL ==>|"$ buy SSI / agent tokens"| MARI & TOKEN
+    RETAIL ==>|"$ long/short perps"| PERPS
+    RETAIL ==>|"$ yield"| VAULT
+    LPMM ==>|"$ provide liquidity"| CLAMM_V & CLOB_V
+    INVEST & INST ==>|"$ underwrite / allocate"| STRUCT & REVFIN & MARI
+
+    %% SoSoValue Closed Loop
+    MARI & VAULT -->|"NAV appreciation + rewards"| SOSO["$SOSO Emissions<br>Staking · Points · Airdrops"]
+    SOSO -->|"reinvest"| PLATFORM & VAULT
+
+    classDef supply fill:#fff3e0,stroke:#e65100
+    classDef decision fill:#fffde7,stroke:#f9a825
+    classDef product fill:#e3f2fd,stroke:#0d47a1
+    classDef capital fill:#f3e5f5,stroke:#6a1b9a,stroke-width:3px
+    class PLATFORM,AGENT supply
+    class D1,D2,D3,D_EXP,D_SIDE,D_USE decision
+    class TOKEN,PERPS,REVMKT,MARI,CLAMM_V,CLOB_V,VAULT,STRUCT,REVFIN product
+    class RETAIL,LPMM,INVEST,INST capital

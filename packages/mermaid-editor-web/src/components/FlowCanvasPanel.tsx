@@ -1,7 +1,12 @@
 import type { Connection, EdgeChange, EdgeMouseHandler, NodeChange, NodeMouseHandler } from '@xyflow/react';
 import mermaid from 'mermaid';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useAppTheme } from '../context/AppThemeContext';
+import {
+  readStoredSelectionToolbarLayout,
+  storeSelectionToolbarLayout,
+  type SelectionToolbarLayout,
+} from '../selectionToolbarLayout';
 import type { ResolvedFlowEdgeData } from '../flow/edgeStyle';
 import type {
   FlowEdge,
@@ -112,6 +117,17 @@ export function FlowCanvasPanel({
   const mermaidCanvasRef = useRef<HTMLDivElement | null>(null);
   const mermaidRenderSeq = useRef(0);
   const [mermaidCanvasError, setMermaidCanvasError] = useState<string | null>(null);
+  const [toolbarLayout, setToolbarLayout] = useState<SelectionToolbarLayout>(() =>
+    readStoredSelectionToolbarLayout()
+  );
+
+  const toggleToolbarLayout = useCallback(() => {
+    setToolbarLayout((current) => {
+      const next: SelectionToolbarLayout = current === 'horizontal' ? 'vertical' : 'horizontal';
+      storeSelectionToolbarLayout(next);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!mermaidChartPreview) {
@@ -200,7 +216,10 @@ export function FlowCanvasPanel({
               onCopySelection={onCopySelection}
               onPasteSelection={onPasteSelection}
             />
-            <div className="flow-canvas-overlay" aria-live="polite">
+            <div
+              className={`flow-canvas-overlay flow-canvas-overlay--toolbar-${toolbarLayout}`}
+              aria-live="polite"
+            >
               <NodeSelectionToolbar
                 selectedCount={selectedCount}
                 selectedNodeCount={selectedNodeCount}
@@ -214,6 +233,8 @@ export function FlowCanvasPanel({
                 onPickPathType={onPickPathType}
                 onPickLineStyle={onPickLineStyle}
                 onPickEdgeColor={onPickEdgeColor}
+                layout={toolbarLayout}
+                onToggleLayout={toggleToolbarLayout}
               />
             </div>
           </div>
