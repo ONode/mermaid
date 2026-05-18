@@ -97,7 +97,14 @@ function serializeNodeTree(nodes: FlowNode[], parentId: string | undefined, inde
 }
 
 function mermaidEdgeArrow(edge: FlowEdge): string {
-  const { lineStyle, strokeWeight } = resolveFlowEdgeData(edge);
+  const { lineStyle, strokeWeight, arrowStart, arrowEnd } = resolveFlowEdgeData(edge);
+  const bidirectional = arrowStart && arrowEnd;
+  if (bidirectional && lineStyle === 'dashed') {
+    return '<-.->';
+  }
+  if (bidirectional) {
+    return '<-->';
+  }
   if (lineStyle === 'dashed') {
     return '-.->';
   }

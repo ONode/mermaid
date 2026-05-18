@@ -101,7 +101,7 @@ export function MermaidSourcePanel({
       >
         <p className="panel__hint">
           {textEditMode
-            ? 'Edit text, then Apply. Supports flowchart TD/LR/…, nodes, edges, subgraph blocks, and style fills; %% and classDef/class are skipped. Apply updates the canvas, then the text shown here is re-generated (same meaning; quotes/indent may differ).'
+            ? 'Edit text, then Apply. Supports flowchart TD/LR/…, nodes, edges, subgraph blocks, style fills, and classDef/class colors. Apply updates the canvas, then the text shown here is re-generated (same meaning; quotes/indent may differ).'
             : 'Generated from the canvas. Shapes and fills round-trip via Mermaid; use “Edit Mermaid text” to paste or edit, then Apply.'}
         </p>
         <textarea

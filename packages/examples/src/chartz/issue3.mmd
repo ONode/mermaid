@@ -1,0 +1,60 @@
+flowchart LR
+	subgraph RETAIL["RETAIL SIDE — Volatility Buyers"]
+		direction TB
+		R1B["R1 Agent Perps"]
+		R2B["R2 Index Perps"]
+		R3B["R3 Leverage Tokens"]
+		R4B["R4 LP Pools"]
+		R5B["R5 Junior Tranches"]
+		R6B["R6 Revenue NFTs"]
+		R7B["R7 Prediction Markets"]
+		R8B["R8 Copy-Agent"]
+		R9B["R9 BYO Basket"]
+		R10B["R10 agentUSD"]
+		R11B["R11 Barrier Options"]
+		R12B["R12 Launchpad Lottery"]
+	end
+	subgraph CLEAR["MORPHEUM CLEARING LAYER"]
+		direction TB
+		CLOB["CLOB Perpdex<br>(derivatives)"]
+		CLAMM["HyperCLAMM<br>(spot LP)"]
+		FACTOR["Factor Model +<br>MARI Index Engine"]
+	end
+	subgraph INST["INSTITUTIONAL SIDE — Volatility Sellers"]
+		direction TB
+		I1B["I1 Agent Factory"]
+		I2B["I2 Prime Services"]
+		I3B["I3 Exec Attestations"]
+		I4B["I4 Senior Tranches"]
+		I5B["I5 Hedged SMAs"]
+		I6B["I6 PP Notes"]
+		I7B["I7 Revenue Swaps"]
+		I8B["I8 Vol Swaps"]
+		I9B["I9 MARI Index Tokens"]
+		I10B["I10 MM Mandates"]
+		I11B["I11 AP Create/Redeem"]
+		I12B["I12 White-Label Indices"]
+	end
+	AGENTS_B["Bankr / Virtuals /<br>Native Morpheum Agents"]
+	RETAIL -->|"funding,<br>option premium,<br>LP fees,<br>junior capital"| CLEAR
+	CLEAR -->|"leverage, upside,<br>narrative, yield"| RETAIL
+	CLEAR -->|"vol-risk-premium,<br>basis spread,<br>fee revenue"| INST
+	INST -->|"liquidity, hedge supply,<br>senior capital, MM depth"| CLEAR
+	AGENTS_B <-->|"migrate liquidity ⇄<br>cheaper capital + hedging"| CLEAR
+	R1B -.->|"hedged by"| I5B
+	R2B -.->|"market-made by"| I10B
+	R5B -.->|"subordinates"| I4B
+	R11B -.->|"vol sold by"| I8B
+	R3B -.->|"rebalance flow to"| I10B
+	R10B -.->|"backed by"| I4B
+	R6B -.->|"bundled into"| I7B
+	R9B -.->|"promoted to"| I12B
+	R12B -.->|"distributes float for"| I11B
+	classDef retailBox fill:#fce4ec,stroke:#880e4f,color:#000
+	classDef instBox fill:#e8f5e9,stroke:#1b5e20,color:#000
+	classDef clearBox fill:#e3f2fd,stroke:#0d47a1,color:#000
+	classDef agentBox fill:#fff3e0,stroke:#e65100,color:#000
+	class R1B,R2B,R3B,R4B,R5B,R6B,R7B,R8B,R9B,R10B,R11B,R12B retailBox
+	class I1B,I2B,I3B,I4B,I5B,I6B,I7B,I8B,I9B,I10B,I11B,I12B instBox
+	class CLOB,CLAMM,FACTOR clearBox
+	class AGENTS_B agentBox

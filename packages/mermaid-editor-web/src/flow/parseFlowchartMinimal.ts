@@ -1,3 +1,4 @@
+import { applyClassToNodes, parseClassAssignLine, parseClassDefLine, type ClassDefStyle } from './parseClass';
 import { parseAndPushEdgeLine } from './parseEdgeLine';
 import { parseSubgraphHeader, uniqueSubgraphId } from './parseSubgraphHeader';
 import { unquoteMermaidString } from './mermaidText';
@@ -17,10 +18,6 @@ const COMMENT_LINE = /^\s*%%(?!\{)/;
 const SUBGRAPH_OPEN = /^\s*subgraph\s+(.+)$/i;
 const DIRECTION_LINE = /^\s*direction\s+(TD|BT|LR|RL|TB)\s*$/i;
 const END_LINE = /^\s*end\s*$/i;
-/** `classDef` / `class` styling (ignored for canvas; preview still uses full Mermaid). */
-const CLASS_DEF_LINE = /^\s*classDef\b/i;
-const CLASS_LINE = /^\s*class\s+/i;
-
 /** Cylinder: id[(label)] */
 const NODE_CYLINDER = /^\s*(\w+)\[\(([^)\n]*)\)\]\s*$/;
 const NODE_CYLINDER_QUOTED = /^\s*(\w+)\[\(\s*"((?:\\.|[^"\\])*)"\s*\)\]\s*$/;
@@ -124,7 +121,7 @@ function applyStyleFill(nodes: Map<string, FlowNode>, id: string, fill: string):
 
 /**
  * Minimal parser: `flowchart` + direction (`TD`, `LR`, …), node lines `id[label]` / `id([...])` / `id((...))` / `id{"..."}` / `id{label}`,
- * edges, subgraph blocks, `style id fill:color`. Skips `%%` comments and `classDef` / `class` lines.
+ * edges, subgraph blocks, `style id fill:color`, and `classDef` / `class` fills. Skips `%%` comments.
  * Unknown lines are errors.
  */
 export function parseFlowchartMinimal(text: string): ParseResult {
@@ -135,6 +132,8 @@ export function parseFlowchartMinimal(text: string): ParseResult {
   let direction: FlowchartDirection = 'TD';
   let sawFlowchartHeader = false;
   const subgraphStack: string[] = [];
+  const classDefs = new Map<string, ClassDefStyle>();
+  const classAssignments: { nodeIds: string[]; className: string }[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? '';
@@ -146,7 +145,15 @@ export function parseFlowchartMinimal(text: string): ParseResult {
     if (COMMENT_LINE.test(trimmed)) {
       continue;
     }
-    if (CLASS_DEF_LINE.test(trimmed) || CLASS_LINE.test(trimmed)) {
+    const classDef = parseClassDefLine(trimmed);
+    if (classDef) {
+      classDefs.set(classDef.name, classDef.style);
+      continue;
+    }
+
+    const classAssign = parseClassAssignLine(trimmed);
+    if (classAssign) {
+      classAssignments.push(classAssign);
       continue;
     }
 
@@ -293,6 +300,10 @@ export function parseFlowchartMinimal(text: string): ParseResult {
       ok: false,
       error: `Could not parse:\n${unknown.slice(0, 5).join('\n')}${unknown.length > 5 ? '\n…' : ''}`,
     };
+  }
+
+  for (const assignment of classAssignments) {
+    applyClassToNodes(nodes, classDefs, assignment.nodeIds, assignment.className);
   }
 
   if (nodes.size === 0 && edges.length === 0) {

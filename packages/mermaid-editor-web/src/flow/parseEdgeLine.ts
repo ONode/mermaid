@@ -2,21 +2,24 @@ import { applyFlowEdgeStyle } from './edgeStyle';
 import { unquoteMermaidString } from './mermaidText';
 import type { FlowEdge, FlowEdgeLineStyle, FlowEdgeStrokeWeight, FlowNode, FlowShape } from './types';
 
-type ArrowToken = '-.->' | '==>' | '-->';
+type ArrowToken = '-.->' | '==>' | '-->' | '<-->' | '<-.->';
 
 type ArrowStyle = {
   token: ArrowToken;
   lineStyle: FlowEdgeLineStyle;
   strokeWeight: FlowEdgeStrokeWeight;
+  bidirectional?: boolean;
 };
 
 const ARROW_STYLES: Record<ArrowToken, Omit<ArrowStyle, 'token'>> = {
+  '<-.->': { lineStyle: 'dashed', strokeWeight: 'normal', bidirectional: true },
+  '<-->': { lineStyle: 'solid', strokeWeight: 'normal', bidirectional: true },
   '-.->': { lineStyle: 'dashed', strokeWeight: 'normal' },
   '==>': { lineStyle: 'solid', strokeWeight: 'thick' },
   '-->': { lineStyle: 'solid', strokeWeight: 'normal' },
 };
 
-const EDGE_SPLIT = /^(.+?)\s*(-\.->|==>|-->)\s*(.+)$/;
+const EDGE_SPLIT = /^(.+?)\s*(<-\.->|<-->|-\.->|==>|-->)\s*(.+)$/;
 
 function unquoteEdgeLabel(raw: string): string {
   const t = raw.trim();
@@ -194,7 +197,10 @@ export function parseAndPushEdgeLine(
     targetIds.push(id);
   }
 
-  const styleData = edgeStyleData(split.arrow.lineStyle, split.arrow.strokeWeight);
+  const styleData = {
+    ...edgeStyleData(split.arrow.lineStyle, split.arrow.strokeWeight),
+    ...(split.arrow.bidirectional ? { arrowStart: true, arrowEnd: true } : {}),
+  };
 
   for (const source of sourceIds) {
     for (const target of targetIds) {
@@ -205,7 +211,7 @@ export function parseAndPushEdgeLine(
           source,
           target,
           ...(remainder.label !== undefined ? { label: remainder.label } : {}),
-          data: styleData,
+          data: Object.keys(styleData).length > 0 ? styleData : undefined,
         })
       );
     }
