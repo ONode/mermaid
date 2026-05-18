@@ -1,5 +1,5 @@
 import mermaid from 'mermaid';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useAppTheme } from '../context/AppThemeContext';
 
 function formatMermaidError(err: unknown): string {
@@ -33,14 +33,23 @@ export type MermaidPreviewPanelProps = {
   className?: string;
 };
 
+export type MermaidPreviewPanelHandle = {
+  getPreviewContainer: () => HTMLDivElement | null;
+};
+
 /**
  * Debounced `mermaid.run` for the given source string.
  */
-export function MermaidPreviewPanel({ source, className }: MermaidPreviewPanelProps) {
+export const MermaidPreviewPanel = forwardRef<MermaidPreviewPanelHandle, MermaidPreviewPanelProps>(
+  function MermaidPreviewPanel({ source, className }, ref) {
   const { theme } = useAppTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const renderSeq = useRef(0);
   const [mermaidError, setMermaidError] = useState<string | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    getPreviewContainer: () => containerRef.current,
+  }));
 
   const runRender = useCallback(async (text: string) => {
     const el = containerRef.current;
@@ -84,4 +93,4 @@ export function MermaidPreviewPanel({ source, className }: MermaidPreviewPanelPr
       <div className="preview-wrap" ref={containerRef} />
     </section>
   );
-}
+});

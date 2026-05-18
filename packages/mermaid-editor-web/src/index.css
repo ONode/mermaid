@@ -296,6 +296,11 @@ body {
   color: var(--color-neon-green);
 }
 
+.app-header__add-node-menu--align-end {
+  left: auto;
+  right: 0;
+}
+
 /* Main grid */
 .app-grid {
   flex: 1;
